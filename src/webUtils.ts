@@ -5,9 +5,10 @@ const {
 
 const agent = new SocksProxyAgent('socks5h://127.0.0.1:9050');
 
+const MAX_REDIRECT_CNT = 3;
 export const VALID_STATUS_CODES = [200];
 
-export function getPage(url) {
+export function getPage(url: URL, redirectCount: number = 0) {
   const http = require('http');
 
   return new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
@@ -17,7 +18,7 @@ export function getPage(url) {
       agent
     };
 
-    http.get(url, options, res => {
+    http.get(url.getFull(), options, res => {
 
       switch (res.statusCode) {
         case 200:
@@ -36,28 +37,28 @@ export function getPage(url) {
         // Moved temporarily
         case 301:
           // Moved permanetly
-          /*
-          Raw Headers example
-          rawHeaders: [
-            'Date',
-            'Tue, 28 Dec 2021 21:10:14 GMT',
-            'Content-Type',
-            'text/html',
-            'Transfer-Encoding',
-            'chunked',
-            'Connection',
-            'close',
-            'Location',
-            'https://27m3p2uv7igmj6kvd4ql3cct5h3sdwrsajovkkndeufumzyfhlfev4qd.onion/'
-          ]
-          */
-          let newLocation = res.rawHeaders[res.rawHeaders.findIndex(e => e === "Location") + 1];
-          let locationURL = (new URL(newLocation)).getFull();          
-          console.log(`Redirectiong to: ${locationURL}`);
+          if(redirectCount > MAX_REDIRECT_CNT) {
+            console.log(`Max redirect count reacted for: ${url}`)
+            resolve({ page: null, status: res.statusCode });
+            return;
+          }
+          console.log(`Requested redirect from: ${url}`);
+          console.log(res.statusCode);
+          console.log(res.headers);
+          let locationURL = null;
+          try {
+            locationURL = new URL(res.headers.location);          
+          } catch {
+            locationURL = new URL(addPath(url, res.headers.location));
+          }
           
-          getPage(locationURL).then(res => resolve(res)).catch(e => reject(e));
+          console.log(`Redirectiong to (${redirectCount}): ${locationURL}`);          
+          getPage(locationURL, redirectCount + 1).then(res => resolve(res)).catch(e => reject(e));
           break;
+        case 500:
+          // Internal Server Error
         case 404:
+          // Not found
           resolve({ page: null, status: res.statusCode });
           break;
         default:
@@ -67,6 +68,13 @@ export function getPage(url) {
       reject(error);
     });
   });
+}
+
+function addPath(url: URL, path: string) {
+  if(path[0] !== "/") {
+    path = `/${path}`;
+  }
+  return `${url.protocol}://${url.hostName}.onion${path}`;
 }
 
 export const VALID_ONION_REGEX = '[a-zA-Z0-9@:%_+~#?&=]{10,256}\\.onion[a-zA-Z0-9@:%_+~#?&=/.]*';

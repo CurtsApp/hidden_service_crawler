@@ -14,7 +14,7 @@ export class Site {
         this.links = [];
         this.url = new URL(url);
 
-        getPage(url).then(result => {
+        getPage(this.url).then(result => {
             this.pageStatus = result.status;
             console.log(`Got site details: ${result.status}`);
             if (result.page !== null) {

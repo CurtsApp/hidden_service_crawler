@@ -30,7 +30,11 @@ export class URL {
     }
 
     getFull(): string {
-        return `${this.protocol}://${this.hostName}.onion${this.getPath()}`
+        return `${this.protocol}://${this.hostName}.onion${this.getPath()}/`
+    }
+
+    toString(): string {
+        return this.getFull();
     }
 
     getPath(): string {
