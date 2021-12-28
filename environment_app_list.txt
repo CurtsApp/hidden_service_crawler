@@ -9,6 +9,11 @@ Firefox entensions
     last pass
 git kraken
 curl
+node
+node-typescript
 
 Tor Service
     Try to get a newer version
+
+Change video driver to official one created by nvidia in
+    about -> software -> drivers

@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && cd dist && node crawler.js http://zqktlwiuavvvqqt4ybvgvi7tyo4hjl5xgfuvpdf6otjiycgwqbym2qad.onion/wiki/"
+  },
   "dependencies": {
     "socks-proxy-agent": "^6.1.1"
   },
