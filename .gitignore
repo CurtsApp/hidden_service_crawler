@@ -6,3 +6,5 @@ node_modules/
 temp/
 
 dist/
+
+out.txt

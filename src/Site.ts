@@ -1,33 +1,43 @@
 import { getPage, getPageTitle, getPageLinks } from "./webUtils";
+import { URL } from "./URL";
 
 export class Site {
     loaded: boolean;
-    url: string;
+    url: URL;
     title: string;
-    links: string[];
-    depth: number;
+    links: URL[];
+    pageStatus: number; // HTTP Status code
+    error: any;
 
-    constructor(url: string, onComplete?: (site: Site) => void) {
+    private constructor(url: string, onComplete?: (site: Site) => void) {
         this.loaded = false;
-        this.url = url;
         this.links = [];
-        
-        console.log("Getting Page");
-        getPage(url).then(page => {
-            console.log("Getting Title");
-            this.title = getPageTitle(page);
-            console.log("Getting Links");
-            getPageLinks(page).forEach(link => this.links.push(link));
+        this.url = new URL(url);
+
+        getPage(url).then(result => {
+            this.pageStatus = result.status;
+            console.log(`Got site details: ${result.status}`);
+            if (result.page !== null) {
+                this.title = getPageTitle(result.page);
+                getPageLinks(result.page).forEach(link => this.links.push(new URL(link)));
+            }
+        }).catch(e => {
+            this.error = e;
+        }).finally(() => {
             this.loaded = true;
             if (onComplete) {
                 onComplete(this);
             }
-        }).catch(e => console.log(e));
+        });
+    }
+
+    getURL(): string {
+        return this.url.getFull();
     }
 
     toString(): string {
         if (this.loaded) {
-            return `Loading: "${this.url}"`
+            return `Loading: "${this.getURL()}"`
         } else {
             return {
                 title: this.title,
@@ -35,5 +45,18 @@ export class Site {
             }.toString();
         }
     }
+
+    static factory(url: string) {
+        return new Promise((resolve: (site: Site) => void, reject) => {
+            new Site(url, (site) => {
+                if (site.error) {
+                    reject(site.error);
+                }
+                resolve(site);
+            });
+        });
+    }
 }
+
+
 
