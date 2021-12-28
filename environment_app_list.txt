@@ -1,0 +1,14 @@
+VS Code
+Tor Broswer
+VLC
+Discord
+Firefox entensions
+    uBlock
+    Privacy Badger
+    https everywhere
+    last pass
+git kraken
+curl
+
+Tor Service
+    Try to get a newer version
