@@ -10,6 +10,7 @@ export const VALID_STATUS_CODES = [200];
 
 export function getPage(url: URL, redirectCount: number = 0) {
   const http = require('http');
+  const https = require('https');
 
   return new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
     // Might have to swap between http and https if sites use https
@@ -18,7 +19,9 @@ export function getPage(url: URL, redirectCount: number = 0) {
       agent
     };
 
-    http.get(url.getFull(), options, res => {
+    let webProtocol = url.protocol === "https" ? https : http;
+
+    webProtocol.get(url.getFull(), options, res => {
 
       switch (res.statusCode) {
         case 200:
@@ -77,7 +80,7 @@ function addPath(url: URL, path: string) {
   return `${url.protocol}://${url.hostName}.onion${path}`;
 }
 
-export const VALID_ONION_REGEX = '[a-zA-Z0-9@:%_+~#?&=]{10,256}\\.onion[a-zA-Z0-9@:%_+~#?&=/.]*';
+export const VALID_ONION_REGEX = '(http:\\/\\/|https:\\/\\/)?[a-zA-Z0-9@:%_+~#?&=]{10,256}\\.onion[a-zA-Z0-9@:%_+~#?&=/.]*';
 
 export function getPageLinks(pageString) {
   let getOnionsRegEx = new RegExp(VALID_ONION_REGEX, 'g');
