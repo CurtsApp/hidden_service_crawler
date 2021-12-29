@@ -32,7 +32,7 @@ function main() {
         let web = new Web();
 
         Site.factory(startUrl).then(site => {
-            web.addSite(site, null, true);
+            web.addSite(site, true);
         });
     } else {
         console.log("Provide source url as first argument.");

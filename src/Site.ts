@@ -16,7 +16,6 @@ export class Site {
 
         getPage(this.url).then(result => {
             this.pageStatus = result.status;
-            console.log(`Got site details: ${result.status} from ${this.url}`);
             if (result.page !== null) {
                 this.title = getPageTitle(result.page);
                 getPageLinks(result.page).forEach(link => this.links.push(new URL(link)));

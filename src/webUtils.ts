@@ -5,10 +5,10 @@ const {
 
 const agent = new SocksProxyAgent('socks5h://127.0.0.1:9050');
 
-const MAX_REDIRECT_CNT = 3;
+const MAX_RETRY_CNT = 3;
 export const VALID_STATUS_CODES = [200];
 
-export function getPage(url: URL, redirectCount: number = 0) {
+export function getPage(url: URL, retryCount: number = 0) {
   const http = require('http');
   const https = require('https');
 
@@ -20,7 +20,7 @@ export function getPage(url: URL, redirectCount: number = 0) {
     };
 
     let webProtocol = url.protocol === "https" ? https : http;
-
+    console.log(`Accessing ${url}`);
     webProtocol.get(url.getFull(), options, res => {
 
       switch (res.statusCode) {
@@ -40,7 +40,7 @@ export function getPage(url: URL, redirectCount: number = 0) {
         // Moved temporarily
         case 301:
           // Moved permanetly
-          if(redirectCount > MAX_REDIRECT_CNT) {
+          if(retryCount > MAX_RETRY_CNT) {
             console.log(`Max redirect count reacted for: ${url}`)
             resolve({ page: null, status: res.statusCode });
             return;
@@ -55,18 +55,36 @@ export function getPage(url: URL, redirectCount: number = 0) {
           }
           
           console.log(`Redirectiong (${res.statusCode})...\nFrom: ${url}\nTo:   ${locationURL}`);          
-          getPage(locationURL, redirectCount + 1).then(res => resolve(res)).catch(e => reject(e));
+          getPage(locationURL, retryCount + 1).then(res => resolve(res)).catch(e => reject(e));
           break;
         case 500:
           // Internal Server Error
+        case 503:
+          // Retry later (should be time in headers)
+        case 403:
+          // Forbidden
+        case 400:
+          // Bad Request 
+        case 401:
+          // Unauthorized
         case 405:
           // Method not allowed
         case 404:
           // Not found
           resolve({ page: null, status: res.statusCode });
           break;
+        case 408:
+          // Connection timeout
+          if(retryCount > MAX_RETRY_CNT) {
+            console.log(`Max retry count after timeout reacted for: ${url}`)
+            resolve({ page: null, status: res.statusCode });
+            return;
+          }
+          // Retry getting the same data
+          getPage(url, retryCount + 1).then(res => resolve(res)).catch(e => reject(e));
+          break;
         default:
-          throw new Error(`New status code: ${res.statusCode}. From \n${url}`);
+          throw new Error(`New status code: ${res.statusCode}. From \n${url}\nHeaders:\n${res.headers.toString()}`);
       }
     }).on('error', error => {
       reject(error);
