@@ -1,39 +1,50 @@
+import { DBManager } from "./DBManager";
 import { Site } from "./Site";
 import { URL } from "./URL";
 
 const MAX_SITE_ATTEMPTS = 500;
 export class Web {
     attempts: number;
-    siteStats: { [url: string]: SiteStats };
-    // Individual words in a title map to a urls which contain it in the title
-    titleMap: { [word: string]: string[] };
-    errorSites: { [url: string]: any }; // maps to errors
-    pendingRequests: { [url: string]: number } // maps to start timestamp
+    knownSites: { [url: string]: string }; // titles
+    dbm: DBManager;
+    isInitComplete: boolean;
 
     constructor() {
-        this.siteStats = {};
-        this.titleMap = {};
-        this.errorSites = {};
-        this.pendingRequests = {};
         this.attempts = 0;
+        this.isInitComplete = false;
+        this.dbm = new DBManager();
+
+        //Initalize known sites
+        this.knownSites = {};
+        this.dbm.getSiteTitleMap((results) => {
+            results.forEach(result => this.knownSites[result.link] = result.title); 
+            this.isInitComplete = true;           
+        });
     }
 
     toString(): string {
-        return `\nWeb Stats:\nUnique Site Count: ${Object.keys(this.siteStats).length}\nBad Links Count: ${Object.keys(this.errorSites).length}\nPending Count: ${Object.keys(this.pendingRequests).length}\n`
+        return `\nWeb Stats:\nKnown Site Count: ${Object.keys(this.knownSites).length}\n`
     }
 
     addURL(url: URL, recursive: boolean = false, onComplete?: () => void) {
-        // Avoid requesting the same site more than once
-        let urlString = url.getFull();
-        if (this.siteStats.hasOwnProperty(urlString) || this.errorSites.hasOwnProperty(urlString) || this.pendingRequests.hasOwnProperty(urlString)) {
+        if(!this.isInitComplete) {
+            setInterval(() => this.addURL(url, recursive, onComplete), 300);
             return;
         }
+        // Avoid requesting the same site more than once
+        let urlString = url.getFull();
+        if (this.knownSites.hasOwnProperty(urlString)) {
+            return;
+        }
+        // Set placeholder so we don't request this url again
+        this.knownSites[urlString] = null;
+        // Track total attempts to prevent ram from exploding to infinite recursion
         this.attempts++;
         Site.factory(url).then(site => {
             this.addSite(site, recursive, onComplete);
         }).catch(e => {
-            this.errorSites[url.getFull()] = e;
-            delete this.pendingRequests[url.getFull()];
+            this.dbm.storeSite(url);
+            this.dbm.logSiteAccess(url, true);
         }).finally(() => {
             if(onComplete) {
                 onComplete();
@@ -47,10 +58,11 @@ export class Web {
         }
 
         let urlString = site.url.getFull();
-        this.siteStats[urlString] = {
-            title: site.title
-        };
-        delete this.pendingRequests[urlString];
+        // Update placeholder with correct title
+        this.knownSites[urlString] = site.title;
+        
+        this.dbm.storeSite(site.url, site.title);
+        this.dbm.logSiteAccess(site.url, true);
 
         if (recursive && this.attempts < MAX_SITE_ATTEMPTS) {
             site.links.forEach((link) => {

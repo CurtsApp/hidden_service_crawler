@@ -6,9 +6,11 @@
     "test3": "tsc && cd dist && node crawler.js http://darkzzx4avcsuofgfez5zq75cqc4mprjvfqywo45dfcaxrwqg6qrlfid.onion/"
   },
   "dependencies": {
-    "socks-proxy-agent": "^6.1.1"
+    "socks-proxy-agent": "^6.1.1",
+    "sqlite3": "^5.0.2"
   },
   "devDependencies": {
+    "@types/sqlite3": "^3.1.8",
     "@types/node": "^17.0.3"
   }
 }
