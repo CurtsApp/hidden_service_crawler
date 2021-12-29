@@ -45,9 +45,8 @@ export function getPage(url: URL, redirectCount: number = 0) {
             resolve({ page: null, status: res.statusCode });
             return;
           }
-          console.log(`Requested redirect from: ${url}`);
-          console.log(res.statusCode);
-          console.log(res.headers);
+          //console.log(`Requested redirect (${res.statusCode})from: ${url}`);
+          //console.log(res.headers);
           let locationURL = null;
           try {
             locationURL = new URL(res.headers.location);          
@@ -55,17 +54,19 @@ export function getPage(url: URL, redirectCount: number = 0) {
             locationURL = new URL(addPath(url, res.headers.location));
           }
           
-          console.log(`Redirectiong to (${redirectCount}): ${locationURL}`);          
+          console.log(`Redirectiong (${res.statusCode})...\nFrom: ${url}\nTo:   ${locationURL}`);          
           getPage(locationURL, redirectCount + 1).then(res => resolve(res)).catch(e => reject(e));
           break;
         case 500:
           // Internal Server Error
+        case 405:
+          // Method not allowed
         case 404:
           // Not found
           resolve({ page: null, status: res.statusCode });
           break;
         default:
-          throw new Error(`New status code: ${res.statusCode}`);
+          throw new Error(`New status code: ${res.statusCode}. From \n${url}`);
       }
     }).on('error', error => {
       reject(error);
