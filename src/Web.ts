@@ -30,7 +30,7 @@ export class Web {
         }
         this.attempts++;
         Site.factory(url).then(site => {
-            this.addSite(site, recursive, );
+            this.addSite(site, recursive, onComplete);
         }).catch(e => {
             this.errorSites[url.getFull()] = e;
             delete this.pendingRequests[url.getFull()];

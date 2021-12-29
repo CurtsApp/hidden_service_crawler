@@ -5,6 +5,7 @@ export class URL {
     protocol: "http" | "https";
     hostName: string;
     path: string[];
+    containsSlashSuffix: boolean;
 
     constructor(fullURL: string) {
         let validOnionRegEx = new RegExp(VALID_ONION_REGEX);
@@ -12,6 +13,9 @@ export class URL {
         if (!validOnionRegEx.test(fullURL)) {
             throw new Error(`Invalid URL: ${fullURL}`);
         }
+
+        // The suffix will be dropped when calculating the path
+        this.containsSlashSuffix = fullURL.slice(-1) === "/";
 
         let urlPieces = fullURL.split(".onion");
         let hostPieces = urlPieces[0].split("://");
@@ -30,7 +34,7 @@ export class URL {
     }
 
     getFull(): string {
-        return `${this.protocol}://${this.hostName}.onion${this.getPath()}/`
+        return `${this.protocol}://${this.hostName}.onion${this.getPath()}${this.containsSlashSuffix ? "/" : ""}`
     }
 
     toString(): string {

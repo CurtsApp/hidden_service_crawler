@@ -33,7 +33,8 @@ export function getPage(url: URL, retryCount: number = 0) {
             resolve({ page: page, status: res.statusCode });
           });
           break;
-
+        case 303:
+          // See other
         case 302:
           // Found. aka Moved temporarily but search engines shouldn't index the change (gonna index it anyways for now)
         case 307:
@@ -45,8 +46,6 @@ export function getPage(url: URL, retryCount: number = 0) {
             resolve({ page: null, status: res.statusCode });
             return;
           }
-          //console.log(`Requested redirect (${res.statusCode})from: ${url}`);
-          //console.log(res.headers);
           let locationURL = null;
           try {
             locationURL = new URL(res.headers.location);          
@@ -61,6 +60,8 @@ export function getPage(url: URL, retryCount: number = 0) {
           // Internal Server Error
         case 503:
           // Retry later (should be time in headers)
+        case 420:
+          // "Enchance your Calm" might be rate limited
         case 403:
           // Forbidden
         case 400:
