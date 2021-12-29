@@ -1,0 +1,1 @@
+CREATE TABLE sites(url text NOT NULL, title text);

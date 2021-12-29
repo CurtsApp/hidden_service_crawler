@@ -8,3 +8,5 @@ temp/
 dist/
 
 out.txt
+
+sql/data/

@@ -15,5 +15,7 @@ node-typescript
 Tor Service
     Try to get a newer version
 
+sqlite3
+
 Change video driver to official one created by nvidia in
     about -> software -> drivers
