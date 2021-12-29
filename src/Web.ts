@@ -7,39 +7,56 @@ export class Web {
     siteStats: { [url: string]: SiteStats };
     // Individual words in a title map to a urls which contain it in the title
     titleMap: { [word: string]: string[] };
-    errorSites: { url: string, error: any }[];
+    errorSites: { [url: string]: any }; // maps to errors
+    pendingRequests: { [url: string]: number } // maps to start timestamp
 
     constructor() {
         this.siteStats = {};
         this.titleMap = {};
-        this.errorSites = [];
+        this.errorSites = {};
+        this.pendingRequests = {};
         this.attempts = 0;
     }
 
-    addSite(site: Site, recursive: boolean = false) {
+    toString(): string {
+        return `\nWeb Stats:\nUnique Site Count: ${Object.keys(this.siteStats).length}\nBad Links Count: ${Object.keys(this.errorSites).length}\nPending Count: ${Object.keys(this.pendingRequests).length}\n`
+    }
+
+    addURL(url: URL, recursive: boolean = false, onComplete?: () => void) {
+        // Avoid requesting the same site more than once
+        let urlString = url.getFull();
+        if (this.siteStats.hasOwnProperty(urlString) || this.errorSites.hasOwnProperty(urlString) || this.pendingRequests.hasOwnProperty(urlString)) {
+            return;
+        }
+        this.attempts++;
+        Site.factory(url).then(site => {
+            this.addSite(site, recursive, );
+        }).catch(e => {
+            this.errorSites[url.getFull()] = e;
+            delete this.pendingRequests[url.getFull()];
+        }).finally(() => {
+            if(onComplete) {
+                onComplete();
+            }
+        });
+    }
+
+    private addSite(site: Site, recursive: boolean = false, onComplete?: () => void) {
         if (!site.loaded) {
             throw new Error(`Site not finished loading: ${site.getURL()}`);
         }
 
-        this.attempts++;
-        let url = site.url.getFull();
-        
-        if (!this.siteStats[url]) {
-            // Site has not been indexed
-            this.siteStats[url] = {
-                title: site.title
-            };            
+        let urlString = site.url.getFull();
+        this.siteStats[urlString] = {
+            title: site.title
+        };
+        delete this.pendingRequests[urlString];
 
-            if (recursive && this.attempts < MAX_SITE_ATTEMPTS) {
-                let pendingSites = [];
-                site.links.forEach((link) => {
-                    pendingSites.push(Site.factory(link.getFull()).then(newSite => {
-                        this.addSite(newSite, true);
-                    }).catch(e => this.errorSites.push({ url: link.getFull(), error: e })));
-                });
-                Promise.all(pendingSites).then(() => console.log(`Site finished...\nSite Count: ${Object.keys(this.siteStats).length}\nBad Links Count: ${this.errorSites.length}`));
-            }
-        }      
+        if (recursive && this.attempts < MAX_SITE_ATTEMPTS) {
+            site.links.forEach((link) => {
+                this.addURL(link, true, onComplete);
+            });
+        }
     }
 }
 

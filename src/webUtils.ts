@@ -84,7 +84,7 @@ export function getPage(url: URL, retryCount: number = 0) {
           getPage(url, retryCount + 1).then(res => resolve(res)).catch(e => reject(e));
           break;
         default:
-          throw new Error(`New status code: ${res.statusCode}. From \n${url}\nHeaders:\n${res.headers.toString()}`);
+          throw new Error(`New status code: ${res.statusCode}. From \n${url}\nHeaders:\n${JSON.stringify(res.headers)}`);
       }
     }).on('error', error => {
       reject(error);

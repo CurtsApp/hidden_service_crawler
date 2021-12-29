@@ -9,10 +9,10 @@ export class Site {
     pageStatus: number; // HTTP Status code
     error: any;
 
-    private constructor(url: string, onComplete?: (site: Site) => void) {
+    private constructor(url: URL, onComplete?: (site: Site) => void) {
         this.loaded = false;
         this.links = [];
-        this.url = new URL(url);
+        this.url = url;
 
         getPage(this.url).then(result => {
             this.pageStatus = result.status;
@@ -45,7 +45,7 @@ export class Site {
         }
     }
 
-    static factory(url: string) {
+    static factory(url: URL) {
         return new Promise((resolve: (site: Site) => void, reject) => {
             new Site(url, (site) => {
                 if (site.error) {

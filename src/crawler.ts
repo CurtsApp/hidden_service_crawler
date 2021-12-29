@@ -1,6 +1,6 @@
 // To get a new id restart tor service
 
-import { Site } from "./Site";
+import { URL } from "./URL";
 import { Web } from "./Web";
 
 // sudo service tor restart
@@ -23,17 +23,12 @@ function newID() {
 
 
 function main() {
-    let testUrl = 'http://zqktlwiuavvvqqt4ybvgvi7tyo4hjl5xgfuvpdf6otjiycgwqbym2qad.onion/wiki/';
-
     let args = process.argv.slice(2);
     if (args.length > 0) {
         let startUrl = args[0];
 
         let web = new Web();
-
-        Site.factory(startUrl).then(site => {
-            web.addSite(site, true);
-        });
+        web.addURL(new URL(startUrl), true, () => console.log(web.toString()));     
     } else {
         console.log("Provide source url as first argument.");
     }
