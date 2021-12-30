@@ -3,15 +3,19 @@ import { URL } from "./URL";
 const sqlite3 = require('sqlite3');
 
 export class DBManager {
-    db: any;
-    static instance: DBManager;
+    private db: any;
+    private static instance: DBManager;
 
-    constructor() {
-        if (DBManager.instance) {
-            return DBManager.instance;
-        }
+    private constructor() {
         this.db = new sqlite3.Database('./../sql/data/crawler.db');
-        DBManager.instance = this;
+    }
+
+    static getDBManager() {
+        if(!DBManager.instance) {
+            DBManager.instance = new DBManager();
+        }
+
+        return DBManager.instance;
     }
 
     storeSite(url: URL, title?: string) {
@@ -43,6 +47,12 @@ export class DBManager {
 
             onComplete(rows);
         });
+    }
+
+    static close() {
+        if(DBManager.instance) {
+            DBManager.instance.db.close();    
+        }        
     }
 }
 

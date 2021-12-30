@@ -1,5 +1,6 @@
 // To get a new id restart tor service
 
+import { DBManager } from "./DBManager";
 import { URL } from "./URL";
 import { Web } from "./Web";
 
@@ -21,8 +22,16 @@ function newID() {
     })
 }
 
+function exit() {
+    console.log("Gracefully exiting");
+    DBManager.close();
+    process.exit();
+}
 
 function main() {
+    process.on('SIGINT', () => exit());
+    process.on('SIGTERM', () => exit());
+
     let args = process.argv.slice(2);
     if (args.length > 0) {
         let startUrl = args[0];

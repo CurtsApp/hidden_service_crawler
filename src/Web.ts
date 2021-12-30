@@ -10,7 +10,7 @@ export class Web {
 
     constructor(onInit: () => void) {
         this.attempts = 0;
-        this.dbm = new DBManager();
+        this.dbm = DBManager.getDBManager();
 
         //Initalize known sites
         this.knownSites = {};
