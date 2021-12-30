@@ -2,7 +2,7 @@ import { DBManager } from "./DBManager";
 import { Site } from "./Site";
 import { URL } from "./URL";
 
-const MAX_SITE_ATTEMPTS = 500;
+const MAX_SITE_ATTEMPTS = 5000;
 export class Web {
     attempts: number;
     knownSites: { [url: string]: string }; // titles

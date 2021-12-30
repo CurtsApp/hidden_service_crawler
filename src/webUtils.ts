@@ -82,6 +82,8 @@ export function getPage(url: URL, retryCount: number = 0) {
           // Internal Server Error
         case 503:
           // Retry later (should be time in headers)
+        case 520:
+          // Cloud flare had an unexpected issue
         case 420:
           // "Enchance your Calm" might be rate limited
         case 429:
