@@ -7,7 +7,7 @@ export class DBManager {
     static instance: DBManager;
 
     constructor() {
-        if(DBManager.instance) {
+        if (DBManager.instance) {
             return DBManager.instance;
         }
         this.db = new sqlite3.Database('./../sql/data/crawler.db');
@@ -15,23 +15,35 @@ export class DBManager {
     }
 
     storeSite(url: URL, title?: string) {
-        this.db.run(`INSERT INTO sites(link, title) VALUES ("${url.getFull()}", ${title !== undefined ? `"${title}"` : "NULL"})`);
+        this.db.run("INSERT INTO sites(link, title) VALUES (?, ?);",
+            [url.getFull(), title ? title : null],
+            (err) => {
+                if (err) {
+                    throw new Error(err);
+                }
+            });
     }
 
     logSiteAccess(url: URL, status: boolean) {
         let now = Date.now();
-        this.db.run(`INSERT INTO pings(link, access_time, was_online) VALUES ("${url.getFull()}", ${now}, ${status})`);
+        this.db.run("INSERT INTO pings(link, access_time, was_online) VALUES (?, ?, ?);",
+            [url.getFull(), now, status],
+            (err) => {
+                if (err) {
+                    throw new Error(err);
+                }
+            });
     }
 
     getSiteTitleMap(onComplete: (results: SitesRow[]) => void) {
         this.db.all(`SELECT link, title FROM sites;`, (err, rows) => {
-            if(err) {
-                console.log(err);
+            if (err) {
+                throw new Error(err);
             }
 
             onComplete(rows);
         });
-    }    
+    }
 }
 
 export interface SitesRow {

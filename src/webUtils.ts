@@ -28,6 +28,7 @@ export function getPage(url: URL, retryCount: number = 0) {
           let page = '';
           res.on('data', (data) => {
             page += data;
+            console.log(`Data for: ${url.getFull()}`);
           });
           res.on('end', () => {
             resolve({ page: page, status: res.statusCode });
@@ -74,6 +75,8 @@ export function getPage(url: URL, retryCount: number = 0) {
           // Not found
           resolve({ page: null, status: res.statusCode });
           break;
+        case 504:
+          // Gateway timeout
         case 408:
           // Connection timeout
           if(retryCount > MAX_RETRY_CNT) {

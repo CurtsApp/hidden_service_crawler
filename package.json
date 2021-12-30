@@ -1,9 +1,10 @@
 {
   "scripts": {
     "build": "tsc",
-    "test": "tsc && cd dist && node crawler.js http://zqktlwiuavvvqqt4ybvgvi7tyo4hjl5xgfuvpdf6otjiycgwqbym2qad.onion/wiki/",
-    "test2": "tsc && cd dist && node crawler.js http://darkfailenbsdla5mal2mxn2uz66od5vtzd5qozslagrfzachha3f3id.onion/",
-    "test3": "tsc && cd dist && node crawler.js http://darkzzx4avcsuofgfez5zq75cqc4mprjvfqywo45dfcaxrwqg6qrlfid.onion/"
+    "reset": "cd sql; ./reset_db.sh;",
+    "test": "cd sql; ./reset_db.sh; cd ..; tsc; cd dist; node crawler.js http://zqktlwiuavvvqqt4ybvgvi7tyo4hjl5xgfuvpdf6otjiycgwqbym2qad.onion/wiki/",
+    "test2": "cd sql; ./reset_db.sh; cd ..; tsc; cd dist; node crawler.js http://darkfailenbsdla5mal2mxn2uz66od5vtzd5qozslagrfzachha3f3id.onion/",
+    "test3": "cd sql; ./reset_db.sh; cd ..; tsc; cd dist; node crawler.js http://darkzzx4avcsuofgfez5zq75cqc4mprjvfqywo45dfcaxrwqg6qrlfid.onion/"
   },
   "dependencies": {
     "socks-proxy-agent": "^6.1.1",

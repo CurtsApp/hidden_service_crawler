@@ -27,8 +27,10 @@ function main() {
     if (args.length > 0) {
         let startUrl = args[0];
 
-        let web = new Web();
-        web.addURL(new URL(startUrl), false, () => console.log(web.toString()));     
+        let web = new Web(() => {
+            web.addURL(new URL(startUrl), true, () => console.log(web.toString()));
+        });
+
     } else {
         console.log("Provide source url as first argument.");
     }

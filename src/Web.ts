@@ -7,33 +7,28 @@ export class Web {
     attempts: number;
     knownSites: { [url: string]: string }; // titles
     dbm: DBManager;
-    isInitComplete: boolean;
 
-    constructor() {
+    constructor(onInit: () => void) {
         this.attempts = 0;
-        this.isInitComplete = false;
         this.dbm = new DBManager();
 
         //Initalize known sites
         this.knownSites = {};
         this.dbm.getSiteTitleMap((results) => {
-            results.forEach(result => this.knownSites[result.link] = result.title); 
-            this.isInitComplete = true;           
+            results.forEach(result => this.knownSites[result.link] = result.title);
+            onInit();
         });
     }
 
     toString(): string {
-        return `\nWeb Stats:\nKnown Site Count: ${Object.keys(this.knownSites).length}\n`
+        return `Web Stats[Known Site Count: ${Object.keys(this.knownSites).length}]`
     }
 
     addURL(url: URL, recursive: boolean = false, onComplete?: () => void) {
-        if(!this.isInitComplete) {
-            setInterval(() => this.addURL(url, recursive, onComplete), 300);
-            return;
-        }
         // Avoid requesting the same site more than once
         let urlString = url.getFull();
         if (this.knownSites.hasOwnProperty(urlString)) {
+            console.log(`Duplciate: ${urlString}`);
             return;
         }
         // Set placeholder so we don't request this url again
@@ -46,7 +41,7 @@ export class Web {
             this.dbm.storeSite(url);
             this.dbm.logSiteAccess(url, true);
         }).finally(() => {
-            if(onComplete) {
+            if (onComplete) {
                 onComplete();
             }
         });
@@ -60,7 +55,7 @@ export class Web {
         let urlString = site.url.getFull();
         // Update placeholder with correct title
         this.knownSites[urlString] = site.title;
-        
+
         this.dbm.storeSite(site.url, site.title);
         this.dbm.logSiteAccess(site.url, true);
 
