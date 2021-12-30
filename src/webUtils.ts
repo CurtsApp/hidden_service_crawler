@@ -1,4 +1,5 @@
 import { URL } from "./URL";
+import { ActiveDogs, WatchDogManager } from "./WatchDog";
 const {
   SocksProxyAgent
 } = require('socks-proxy-agent');
@@ -26,7 +27,7 @@ export function getPage(url: URL, retryCount: number = 0) {
     let webProtocol = url.protocol === "https" ? https : http;
     console.log(`Accessing ${url}`);
     webProtocol.get(url.getFull(), options, res => {
-      
+      WatchDogManager.feed(ActiveDogs.REQUESTS);
       switch (res.statusCode) {
         case 200:
           let wasDestroyed = false;  
