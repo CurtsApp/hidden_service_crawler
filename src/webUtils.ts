@@ -44,7 +44,6 @@ export function getPage(url: URL, retryCount: number = 0) {
           let page = '';
           res.on('data', (data) => {
             page += data;
-            console.log(`Data for: ${url.getFull()}`);
           });
           res.on('end', () => {
             if(wasDestroyed) {

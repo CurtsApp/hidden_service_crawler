@@ -28,7 +28,6 @@ export class Web {
         // Avoid requesting the same site more than once
         let urlString = url.getFull();
         if (this.knownSites.hasOwnProperty(urlString)) {
-            console.log(`Duplciate: ${urlString}`);
             return;
         }
         // Set placeholder so we don't request this url again
@@ -49,7 +48,7 @@ export class Web {
 
     private addSite(site: Site, recursive: boolean = false, onComplete?: () => void) {
         if (!site.loaded) {
-            throw new Error(`Site not finished loading: ${site.getURL()}`);
+            throw new Error(`Site not finished loading: ${site.url.getFull()}`);
         }
 
         let urlString = site.url.getFull();
@@ -59,7 +58,11 @@ export class Web {
         this.dbm.storeSite(site.url, site.title);
         this.dbm.logSiteAccess(site.url, true);
 
-        if (recursive && this.attempts < MAX_SITE_ATTEMPTS) {
+        if (recursive) {
+            if(this.attempts > MAX_SITE_ATTEMPTS) {
+                console.log("Max attempts reached");
+                return;
+            }
             site.links.forEach((link) => {
                 this.addURL(link, true, onComplete);
             });
