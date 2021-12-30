@@ -2,10 +2,12 @@ import { DBManager } from "./DBManager";
 import { Site } from "./Site";
 import { URL } from "./URL";
 
-const MAX_SITE_ATTEMPTS = 5000;
+const MAX_SITE_ATTEMPTS = 25000;
+const HOST_LIMIT = 10; // Only index a few pages from the same host
 export class Web {
     attempts: number;
     knownSites: { [url: string]: string }; // titles
+    knownHosts: { [url: string]: number }; // count of known sites with each host
     dbm: DBManager;
 
     constructor(onInit: () => void) {
@@ -14,8 +16,17 @@ export class Web {
 
         //Initalize known sites
         this.knownSites = {};
+        this.knownHosts = {};
         this.dbm.getSiteTitleMap((results) => {
-            results.forEach(result => this.knownSites[result.link] = result.title);
+            results.forEach(result => {
+                this.knownSites[result.link] = result.title;
+                let resultHostName = new URL(result.link).hostName;
+                if(this.knownHosts[resultHostName]) {
+                    this.knownHosts[resultHostName] += 1;
+                } else {
+                    this.knownHosts[resultHostName] = 1;
+                }                
+            });
             onInit();
         });
     }
@@ -30,8 +41,19 @@ export class Web {
         if (this.knownSites.hasOwnProperty(urlString)) {
             return;
         }
+
+        if(this.knownHosts[url.hostName] && this.knownHosts[url.hostName] > HOST_LIMIT) {
+            return;
+        }
+
         // Set placeholder so we don't request this url again
         this.knownSites[urlString] = null;
+        // Track host name usage
+        if(this.knownHosts[url.hostName]) {
+            this.knownHosts[url.hostName] += 1;
+        } else {
+            this.knownHosts[url.hostName] = 1;
+        }  
         // Track total attempts to prevent ram from exploding to infinite recursion
         this.attempts++;
         Site.factory(url).then(site => {
@@ -59,7 +81,7 @@ export class Web {
         this.dbm.logSiteAccess(site.url, true);
 
         if (recursive) {
-            if(this.attempts > MAX_SITE_ATTEMPTS) {
+            if (this.attempts > MAX_SITE_ATTEMPTS) {
                 console.log("Max attempts reached");
                 return;
             }
