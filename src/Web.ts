@@ -39,7 +39,7 @@ export class Web {
             this.addSite(site, recursive, onComplete);
         }).catch(e => {
             this.dbm.storeSite(url);
-            this.dbm.logSiteAccess(url, true);
+            this.dbm.logSiteAccess(url, false);
         }).finally(() => {
             if (onComplete) {
                 onComplete();
