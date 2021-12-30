@@ -6,7 +6,11 @@ const {
 const agent = new SocksProxyAgent('socks5h://127.0.0.1:9050');
 
 const MAX_RETRY_CNT = 3;
+const DATA_TIMEOUT_TIME = 31 * 1000;
 export const VALID_STATUS_CODES = [200];
+enum UniqueStatus {
+  DATA_TIMEOUT = -1
+}
 
 export function getPage(url: URL, retryCount: number = 0) {
   const http = require('http');
@@ -22,15 +26,29 @@ export function getPage(url: URL, retryCount: number = 0) {
     let webProtocol = url.protocol === "https" ? https : http;
     console.log(`Accessing ${url}`);
     webProtocol.get(url.getFull(), options, res => {
-
+      
       switch (res.statusCode) {
         case 200:
+          let wasDestroyed = false;  
+          let timeout = setTimeout(() => {
+            // data taking too long to end. resolve early.
+            // destroy should close the connection
+            console.log(`Closing connection early: ${url.getFull()}`);
+            wasDestroyed = true;
+            res.destroy();
+            resolve({ page: page, status:  UniqueStatus.DATA_TIMEOUT});
+          }, DATA_TIMEOUT_TIME);
+          
           let page = '';
           res.on('data', (data) => {
             page += data;
             console.log(`Data for: ${url.getFull()}`);
           });
           res.on('end', () => {
+            if(wasDestroyed) {
+              return;
+            }
+            clearTimeout(timeout);
             resolve({ page: page, status: res.statusCode });
           });
           break;
