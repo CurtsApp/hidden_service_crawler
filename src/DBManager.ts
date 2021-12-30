@@ -1,5 +1,4 @@
 import { URL } from "./URL";
-
 const sqlite3 = require('sqlite3');
 
 export class DBManager {
@@ -11,7 +10,7 @@ export class DBManager {
     }
 
     static getDBManager() {
-        if(!DBManager.instance) {
+        if (!DBManager.instance) {
             DBManager.instance = new DBManager();
         }
 
@@ -50,9 +49,9 @@ export class DBManager {
     }
 
     static close() {
-        if(DBManager.instance) {
-            DBManager.instance.db.close();    
-        }        
+        if (DBManager.instance) {
+            DBManager.instance.db.close();
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 export enum ActiveDogs {
-    REQUESTS = "REQUESTS"
+    REQUESTS = "REQUESTS",
+    DATABASE = "DB",
 }
 
 export class WatchDog {
@@ -21,6 +22,7 @@ export class WatchDog {
         }
         this.feedingTimeout = setTimeout(() => {
             console.log(`Watchdog "${this.name}" starved`);
+            WatchDogManager.remove(this.name);
             this.onStarve();
         }, this.timeToStarve);
     }
@@ -28,6 +30,10 @@ export class WatchDog {
 
 export class WatchDogManager {
     private static watchDogs: { [name: string]: WatchDog };
+
+    static remove(name: string) {
+        delete WatchDogManager.watchDogs[name];
+    }
 
     static register(name: string, dog: WatchDog) {
         if(!WatchDogManager.watchDogs) {

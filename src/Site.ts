@@ -30,13 +30,9 @@ export class Site {
         });
     }
 
-    getURL(): string {
-        return this.url.getFull();
-    }
-
     toString(): string {
         if (this.loaded) {
-            return `Loading: "${this.getURL()}"`
+            return `Loading: "${this.url.getFull()}"`
         } else {
             return {
                 title: this.title,

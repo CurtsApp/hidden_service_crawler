@@ -5,10 +5,11 @@ const {
 } = require('socks-proxy-agent');
 
 const agent = new SocksProxyAgent('socks5h://127.0.0.1:9050');
-
+const TOR_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0";
 const MAX_RETRY_CNT = 3;
-const DATA_TIMEOUT_TIME = 31 * 1000;
-export const VALID_STATUS_CODES = [200];
+const DATA_TIMEOUT_TIME = 31 * 1000; //31 seconds
+export const VALID_ONION_REGEX = '(http:\\/\\/|https:\\/\\/)?[a-zA-Z0-9@:%_+~#?&=]{10,256}\\.onion[a-zA-Z0-9@:%_+~#?&=/.]*';
+
 enum UniqueStatus {
   DATA_TIMEOUT = -1
 }
@@ -20,7 +21,7 @@ export function getPage(url: URL, retryCount: number = 0) {
   return new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
     // Might have to swap between http and https if sites use https
     const options = {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0' },
+      headers: { 'User-Agent': TOR_BROWSER_USER_AGENT },
       agent
     };
 
@@ -53,6 +54,7 @@ export function getPage(url: URL, retryCount: number = 0) {
             resolve({ page: page, status: res.statusCode });
           });
           break;
+
         case 303:
           // See other
         case 302:
@@ -76,12 +78,16 @@ export function getPage(url: URL, retryCount: number = 0) {
           console.log(`Redirectiong (${res.statusCode})...\nFrom: ${url}\nTo:   ${locationURL}`);          
           getPage(locationURL, retryCount + 1).then(res => resolve(res)).catch(e => reject(e));
           break;
+
         case 500:
           // Internal Server Error
         case 503:
           // Retry later (should be time in headers)
         case 420:
           // "Enchance your Calm" might be rate limited
+        case 429:
+          // Too many requests
+          // TODO slow down requests to the same host but unique paths or maybe try again in a bit
         case 403:
           // Forbidden
         case 400:
@@ -106,6 +112,7 @@ export function getPage(url: URL, retryCount: number = 0) {
           // Retry getting the same data
           getPage(url, retryCount + 1).then(res => resolve(res)).catch(e => reject(e));
           break;
+
         default:
           throw new Error(`New status code: ${res.statusCode}. From \n${url}\nHeaders:\n${JSON.stringify(res.headers)}`);
       }
@@ -121,8 +128,6 @@ function addPath(url: URL, path: string) {
   }
   return `${url.protocol}://${url.hostName}.onion${path}`;
 }
-
-export const VALID_ONION_REGEX = '(http:\\/\\/|https:\\/\\/)?[a-zA-Z0-9@:%_+~#?&=]{10,256}\\.onion[a-zA-Z0-9@:%_+~#?&=/.]*';
 
 export function getPageLinks(pageString) {
   let getOnionsRegEx = new RegExp(VALID_ONION_REGEX, 'g');

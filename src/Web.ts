@@ -66,7 +66,3 @@ export class Web {
         }
     }
 }
-
-interface SiteStats {
-    title: string
-}
