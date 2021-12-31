@@ -78,6 +78,8 @@ export function getPage(url: URL, retryCount: number = 0) {
           getPage(locationURL, retryCount + 1).then(res => resolve(res)).catch(e => reject(e));
           break;
 
+        case 300:
+          // Multiple choices (there should be location information in a payload somewhere). Currently unhandled
         case 500:
           // Internal Server Error
         case 503:
@@ -101,6 +103,8 @@ export function getPage(url: URL, retryCount: number = 0) {
           // Not found
           resolve({ page: null, status: res.statusCode });
           break;
+        case 502:
+          // Bad gateway
         case 504:
           // Gateway timeout
         case 408:
