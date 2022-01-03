@@ -1,5 +1,6 @@
-import { getPage, getPageTitle, getPageLinks } from "./webUtils";
+import { getPageTitle, getPageLinks } from "./webUtils";
 import { URL } from "./URL";
+import { RequestManager } from "./RequestManager";
 
 export class Site {
     loaded: boolean;
@@ -9,12 +10,12 @@ export class Site {
     pageStatus: number; // HTTP Status code
     error: any;
 
-    private constructor(url: URL, onComplete?: (site: Site) => void) {
+    private constructor(url: URL, rm: RequestManager, onComplete?: (site: Site) => void) {
         this.loaded = false;
         this.links = [];
         this.url = url;
 
-        getPage(this.url).then(result => {
+        rm.getPage(this.url).then(result => {
             this.pageStatus = result.status;
             if (result.page !== null) {
                 this.title = getPageTitle(result.page);
@@ -41,9 +42,9 @@ export class Site {
         }
     }
 
-    static factory(url: URL) {
+    static factory(url: URL, rm: RequestManager) {
         return new Promise((resolve: (site: Site) => void, reject) => {
-            new Site(url, (site) => {
+            new Site(url, rm, (site) => {
                 if (site.error) {
                     reject(site.error);
                 }

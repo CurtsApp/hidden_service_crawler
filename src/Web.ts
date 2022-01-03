@@ -1,4 +1,5 @@
 import { DBManager } from "./DBManager";
+import { RequestManager } from "./RequestManager";
 import { Site } from "./Site";
 import { URL } from "./URL";
 
@@ -9,10 +10,12 @@ export class Web {
     knownSites: { [url: string]: string }; // titles
     knownHosts: { [url: string]: number }; // count of known sites with each host
     dbm: DBManager;
+    rm: RequestManager;
 
     constructor(onInit: () => void) {
         this.attempts = 0;
         this.dbm = DBManager.getDBManager();
+        this.rm = new RequestManager();
 
         //Initalize known sites
         this.knownSites = {};
@@ -56,7 +59,7 @@ export class Web {
         }  
         // Track total attempts to prevent ram from exploding to infinite recursion
         this.attempts++;
-        Site.factory(url).then(site => {
+        Site.factory(url, this.rm).then(site => {
             this.addSite(site, recursive, onComplete);
         }).catch(e => {
             this.dbm.storeSite(url);

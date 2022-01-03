@@ -18,10 +18,10 @@ function main() {
         let startUrl = args[0];
 
         // REQUESTS is fed by webUtils, if a web request is not made every 32sec exit program
-        new WatchDog(ActiveDogs.REQUESTS, 32 * 1000, () => exit());
+        new WatchDog(ActiveDogs.REQUESTS, 62 * 1000, () => exit());
 
         let web = new Web(() => {
-            web.addURL(new URL(startUrl), true, () => console.log(web.toString()));
+            web.addURL(new URL(startUrl), true, () => /*console.log(web.toString())*/{});
         });
 
     } else {
