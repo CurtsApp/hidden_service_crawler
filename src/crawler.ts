@@ -2,6 +2,7 @@ import { DBManager } from "./DBManager";
 import { URL } from "./URL";
 import { Web } from "./Web";
 import { ActiveDogs, WatchDog } from "./WatchDog";
+import { RequestManager } from "./RequestManager";
 
 function exit() {
     console.log("Gracefully exiting");
@@ -16,11 +17,14 @@ function main() {
     let args = process.argv.slice(2);
     if (args.length > 0) {
         let startUrl = args[0];
-
+        let rm = new RequestManager();
         // REQUESTS is fed by webUtils, if a web request is not made every 32sec exit program
-        new WatchDog(ActiveDogs.REQUESTS, 62 * 1000, () => exit());
+        new WatchDog(ActiveDogs.REQUESTS, 32 * 1000, () => {
+            console.log(`Active URLS: ${rm.activeRequests}`);
+            exit();
+        });
 
-        let web = new Web(() => {
+        let web = new Web(rm, () => {
             web.addURL(new URL(startUrl), true, () => /*console.log(web.toString())*/{});
         });
 

@@ -13,7 +13,7 @@ const agent = new SocksProxyAgent('socks5h://127.0.0.1:9050');
 const TOR_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0";
 const MAX_RETRY_CNT = 3;
 const DATA_TIMEOUT_TIME = 31 * 1000; //31 seconds
-const MAX_CONCURRENT_REQUESTS = 10;
+const MAX_CONCURRENT_REQUESTS = 90; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
 
 enum UniqueStatus {
   DATA_TIMEOUT = -1
@@ -22,14 +22,19 @@ enum UniqueStatus {
 export class RequestManager {
   requestQueue: (() => void)[];
   activeRequests: URL[];
+  processedRequests: number;
+  successfulRequests: number;
+  startTime: number;
 
   constructor() {
     this.requestQueue = [];
     this.activeRequests = [];
+    this.processedRequests = 0;
+    this.successfulRequests = 0;
+    this.startTime = Date.now();
   }
 
   getPage(url: URL) {
-    console.log(`Active Requests: ${this.activeRequests.length}\nQueue Length: ${this.requestQueue.length}`);
     if (this.activeRequests.length < MAX_CONCURRENT_REQUESTS) {
       return this.getRequest(url);
     } else {
@@ -62,26 +67,20 @@ export class RequestManager {
       // Execute the request
       nextRequest();
     }
+    this.processedRequests += 1;
+    console.log(`Active Requests: ${this.activeRequests.length}\nQueue Length: ${this.requestQueue.length}\nProcessed Requests: ${this.processedRequests}\nProcessed Requests / sec: ${(this.processedRequests/((Date.now() - this.startTime)/1000)).toFixed(2)}\nSuccessful Requests: ${this.successfulRequests}`);
   }
 
   private getRequest(url: URL, retryCount: number = 0) {
     return new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
-
-      // On a retried request one http request has ended in a way that triggers a new request to be needed
-      // Function is declared here to preserve this binding and access resolve/reject
-      let retryRequest = (retryURL: URL, retryCount: number) => {
-        // Clear previously requested URL not new one
-        //this.clearActiveRequest(url);
-        this.getRequest(retryURL, retryCount + 1).then(res => resolve(res)).catch(e => reject(e));
-      };
-
       // Active request gets cleared by onRequestComplete
       // Retried URLs are tracked by original URL
       if (retryCount === 0) {
         this.activeRequests.push(url);
       }
 
-      if (this.activeRequests.length > MAX_CONCURRENT_REQUESTS) {
+      // Debugging assertion
+      if (this.activeRequests.length > MAX_CONCURRENT_REQUESTS || this.processedRequests > 999) {
         console.log(`${this.activeRequests}`);
         console.log(`Upcoming: ${url}`);
         console.log(new Error().stack);
@@ -89,6 +88,16 @@ export class RequestManager {
       }
 
       let request = new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
+        // On a retried request one http request has ended in a way that triggers a new request to be needed
+        // Function is declared here to preserve this binding and access resolve/reject
+        let retryRequest = (retryURL: URL, retryCount: number) => {
+          // Clear previously requested URL not new one
+          //this.clearActiveRequest(url);
+          this.getRequest(retryURL, retryCount + 1).then(res => {
+            resolve(res);
+          }).catch(e => reject(e));
+        };
+
         // Might have to swap between http and https if sites use https
         const options = {
           headers: { 'User-Agent': TOR_BROWSER_USER_AGENT },
@@ -114,13 +123,13 @@ export class RequestManager {
               let page = '';
               res.on('data', (data) => {
                 page += data;
-                console.log(`Data for: ${url}`);
               });
               res.on('end', () => {
                 if (wasDestroyed) {
                   return;
                 }
                 clearTimeout(timeout);
+                this.successfulRequests += 1;
                 resolve({ page: page, status: res.statusCode });
               });
               break;
@@ -198,7 +207,9 @@ export class RequestManager {
       });
 
       // Wrapper to ensure request complete always gets run
-      request.then(res => resolve(res)).catch(e => reject(e)).finally(() => {
+      request.then(res => {
+        resolve(res);
+      }).catch(e => reject(e)).finally(() => {
         // Only parent request tracks completion
         if (retryCount === 0)
           this.onRequestComplete(url)

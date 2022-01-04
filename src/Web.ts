@@ -12,10 +12,10 @@ export class Web {
     dbm: DBManager;
     rm: RequestManager;
 
-    constructor(onInit: () => void) {
+    constructor(rm: RequestManager, onInit: () => void) {
         this.attempts = 0;
         this.dbm = DBManager.getDBManager();
-        this.rm = new RequestManager();
+        this.rm = rm;
 
         //Initalize known sites
         this.knownSites = {};
