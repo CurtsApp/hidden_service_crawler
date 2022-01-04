@@ -13,8 +13,9 @@ const {
 const agent = new SocksProxyAgent('socks5h://127.0.0.1:9050');
 const TOR_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0";
 const MAX_RETRY_CNT = 3;
+const CONNECTION_TIMEOUT_TIME = 11 * 1000; //11 seconds
 const DATA_TIMEOUT_TIME = 31 * 1000; //31 seconds
-const MAX_CONCURRENT_REQUESTS = 60; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
+const MAX_CONCURRENT_REQUESTS = 90; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
 
 enum UniqueStatus {
   DATA_TIMEOUT = -1
@@ -22,7 +23,7 @@ enum UniqueStatus {
 
 export class RequestManager {
   requestQueue: (() => void)[];
-  activeRequests: URL[];
+  activeRequests: {url: URL, startTime: number}[];
   processedRequests: number;
   successfulRequests: number;
   startTime: number;
@@ -43,6 +44,13 @@ export class RequestManager {
     }
   }
 
+  getActiveRequestString(): string {
+    let s = "";
+    let now = Date.now();
+    this.activeRequests.map(request => s += `${request.url} ${((now - request.startTime) / 1000).toFixed(1)}secs ago\n`)
+    return s;
+  }
+
   private queuePageRequest(url: URL) {
     return new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
       this.requestQueue.push(() => {
@@ -53,7 +61,7 @@ export class RequestManager {
 
   private clearActiveRequest(url: URL) {
     let startLength = this.activeRequests.length;
-    this.activeRequests = this.activeRequests.filter((element) => element.getFull() !== url.getFull());
+    this.activeRequests = this.activeRequests.filter((element) => element.url.getFull() !== url.getFull());
     if (startLength === this.activeRequests.length) {
       console.log(`Not found in active queue: ${url}`);
     }
@@ -69,7 +77,9 @@ export class RequestManager {
       nextRequest();
     }
     this.processedRequests += 1;
-    console.log(`Active Requests: ${this.activeRequests.length}\nQueue Length: ${this.requestQueue.length}\nProcessed Requests: ${this.processedRequests}\nProcessed Requests / sec: ${(this.processedRequests / ((Date.now() - this.startTime) / 1000)).toFixed(2)}\nSuccessful Requests: ${((this.successfulRequests / this.processedRequests)*100).toFixed(2)}%`);
+    if (this.processedRequests % 10 === 0) {
+      console.log(`Active Requests: ${this.activeRequests.length}\nQueue Length: ${this.requestQueue.length}\nProcessed Requests: ${this.processedRequests}\nProcessed Requests / sec: ${(this.processedRequests / ((Date.now() - this.startTime) / 1000)).toFixed(2)}\nSuccessful Requests: ${((this.successfulRequests / this.processedRequests) * 100).toFixed(2)}%`);
+    }
   }
 
   private getRequest(url: URL, retryCount: number = 0) {
@@ -77,18 +87,18 @@ export class RequestManager {
       // Active request gets cleared by onRequestComplete
       // Retried URLs are tracked by original URL
       if (retryCount === 0) {
-        this.activeRequests.push(url);
+        this.activeRequests.push({url, startTime: Date.now()});
       }
 
       // Debugging assertion
       if (this.activeRequests.length > MAX_CONCURRENT_REQUESTS) {
-        console.log(`${this.activeRequests}`);
+        console.log(this.getActiveRequestString());
         console.log(`Upcoming: ${url}`);
         console.log(new Error().stack);
         process.exit();
       }
 
-      let request = new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
+      let requestWrapper = new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
         // On a retried request one http request has ended in a way that triggers a new request to be needed
         // Function is declared here to preserve this binding and access resolve/reject
         let retryRequest = (retryURL: URL, retryCount: number) => {
@@ -118,8 +128,8 @@ export class RequestManager {
 
         let webProtocol = url.protocol === "https" ? https : http;
         console.log(`Accessing ${url}`);
-        webProtocol.get(url.getFull(), options, res => {
-          WatchDogManager.feed(ActiveDogs.REQUESTS);
+        let request = webProtocol.get(url.getFull(), options, res => {
+          //WatchDogManager.feed(ActiveDogs.REQUESTS);
           let encodingType = res.headers['content-encoding'];
           switch (res.statusCode) {
             case 200:
@@ -244,6 +254,8 @@ export class RequestManager {
             // Unauthorized
             case 405:
             // Method not allowed
+            case 418:
+            // I'm a little teapot (The site knows we are a bot and won't respond)
             case 404:
               // Not found
               resolve({ page: null, status: res.statusCode });
@@ -269,10 +281,15 @@ export class RequestManager {
         }).on('error', error => {
           reject(error);
         });
+
+        request.setTimeout(CONNECTION_TIMEOUT_TIME, () => {
+          console.log(`No response from: ${url}`);
+          request.abort();
+        })
       });
 
       // Wrapper to ensure request complete always gets run
-      request.then(res => {
+      requestWrapper.then(res => {
         resolve(res);
       }).catch(e => reject(e)).finally(() => {
         // Only parent request tracks completion
