@@ -27,9 +27,9 @@ export class DBManager {
             });
     }
 
-    logSiteAccess(url: URL, status: boolean) {
+    logSiteAccess(url: URL, status: number) {
         let now = Date.now();
-        this.db.run("INSERT INTO pings(link, access_time, was_online) VALUES (?, ?, ?);",
+        this.db.run("INSERT INTO pings(link, access_time, status_code) VALUES (?, ?, ?);",
             [url.getFull(), now, status],
             (err) => {
                 if (err) {

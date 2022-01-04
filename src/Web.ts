@@ -1,5 +1,5 @@
 import { DBManager } from "./DBManager";
-import { RequestManager } from "./RequestManager";
+import { RequestManager, UniqueStatus } from "./RequestManager";
 import { Site } from "./Site";
 import { URL } from "./URL";
 
@@ -63,7 +63,7 @@ export class Web {
             this.addSite(site, recursive, onComplete);
         }).catch(e => {
             this.dbm.storeSite(url);
-            this.dbm.logSiteAccess(url, false);
+            this.dbm.logSiteAccess(url, UniqueStatus.GENERIC_FAILURE);
         }).finally(() => {
             if (onComplete) {
                 onComplete();
@@ -81,7 +81,7 @@ export class Web {
         this.knownSites[urlString] = site.title;
 
         this.dbm.storeSite(site.url, site.title);
-        this.dbm.logSiteAccess(site.url, true);
+        this.dbm.logSiteAccess(site.url, site.pageStatus);
 
         if (recursive) {
             if (this.attempts > MAX_SITE_ATTEMPTS) {

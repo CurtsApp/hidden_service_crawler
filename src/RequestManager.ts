@@ -17,8 +17,9 @@ const CONNECTION_TIMEOUT_TIME = 11 * 1000; //11 seconds
 const DATA_TIMEOUT_TIME = 31 * 1000; //31 seconds
 const MAX_CONCURRENT_REQUESTS = 90; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
 
-enum UniqueStatus {
-  DATA_TIMEOUT = -1
+export enum UniqueStatus {
+  GENERIC_FAILURE = -1,
+  DATA_TIMEOUT = -2
 }
 
 export class RequestManager {
@@ -213,6 +214,8 @@ export class RequestManager {
             // See other
             case 302:
             // Found. aka Moved temporarily but search engines shouldn't index the change (gonna index it anyways for now)
+            case 308:
+            // Permanent redirect
             case 307:
             // Moved temporarily
             case 301:
