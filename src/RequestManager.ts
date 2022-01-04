@@ -2,6 +2,7 @@ import { URL } from "./URL";
 
 const http = require('http');
 const https = require('https');
+const zlib = require('zlib');
 
 import { ActiveDogs, WatchDogManager } from "./WatchDog";
 import { addPath } from "./webUtils";
@@ -13,7 +14,7 @@ const agent = new SocksProxyAgent('socks5h://127.0.0.1:9050');
 const TOR_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0";
 const MAX_RETRY_CNT = 3;
 const DATA_TIMEOUT_TIME = 31 * 1000; //31 seconds
-const MAX_CONCURRENT_REQUESTS = 90; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
+const MAX_CONCURRENT_REQUESTS = 60; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
 
 enum UniqueStatus {
   DATA_TIMEOUT = -1
@@ -68,7 +69,7 @@ export class RequestManager {
       nextRequest();
     }
     this.processedRequests += 1;
-    console.log(`Active Requests: ${this.activeRequests.length}\nQueue Length: ${this.requestQueue.length}\nProcessed Requests: ${this.processedRequests}\nProcessed Requests / sec: ${(this.processedRequests/((Date.now() - this.startTime)/1000)).toFixed(2)}\nSuccessful Requests: ${this.successfulRequests}`);
+    console.log(`Active Requests: ${this.activeRequests.length}\nQueue Length: ${this.requestQueue.length}\nProcessed Requests: ${this.processedRequests}\nProcessed Requests / sec: ${(this.processedRequests / ((Date.now() - this.startTime) / 1000)).toFixed(2)}\nSuccessful Requests: ${((this.successfulRequests / this.processedRequests)*100).toFixed(2)}%`);
   }
 
   private getRequest(url: URL, retryCount: number = 0) {
@@ -80,7 +81,7 @@ export class RequestManager {
       }
 
       // Debugging assertion
-      if (this.activeRequests.length > MAX_CONCURRENT_REQUESTS || this.processedRequests > 999) {
+      if (this.activeRequests.length > MAX_CONCURRENT_REQUESTS) {
         console.log(`${this.activeRequests}`);
         console.log(`Upcoming: ${url}`);
         console.log(new Error().stack);
@@ -99,8 +100,19 @@ export class RequestManager {
         };
 
         // Might have to swap between http and https if sites use https
+        // Headers "Host" and "X-Amzn-Trace-Id" added automatically
         const options = {
-          headers: { 'User-Agent': TOR_BROWSER_USER_AGENT },
+          headers: {
+            'User-Agent': TOR_BROWSER_USER_AGENT,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1'
+          },
           agent
         };
 
@@ -108,6 +120,7 @@ export class RequestManager {
         console.log(`Accessing ${url}`);
         webProtocol.get(url.getFull(), options, res => {
           WatchDogManager.feed(ActiveDogs.REQUESTS);
+          let encodingType = res.headers['content-encoding'];
           switch (res.statusCode) {
             case 200:
               let wasDestroyed = false;
@@ -117,21 +130,73 @@ export class RequestManager {
                 console.log(`Closing connection early: ${url.getFull()}`);
                 wasDestroyed = true;
                 res.destroy();
-                resolve({ page: page, status: UniqueStatus.DATA_TIMEOUT });
+                let partialPage = "";
+
+                switch (encodingType) {
+                  case "gzip":
+                    partialPage = Buffer.concat(buffer).toString();
+                    resolve({ page: partialPage, status: UniqueStatus.DATA_TIMEOUT });
+                    break;
+                  case "br":
+                    zlib.brotliDecompress(Buffer.concat(buffer), (err, bufOut) => {
+                      resolve({ page: bufOut.toString(), status: UniqueStatus.DATA_TIMEOUT });
+                    });
+                    break;
+                  default:
+                    partialPage = page;
+                    resolve({ page: partialPage, status: UniqueStatus.DATA_TIMEOUT });
+                    break;
+                }
               }, DATA_TIMEOUT_TIME);
 
               let page = '';
-              res.on('data', (data) => {
-                page += data;
-              });
-              res.on('end', () => {
-                if (wasDestroyed) {
-                  return;
-                }
-                clearTimeout(timeout);
-                this.successfulRequests += 1;
-                resolve({ page: page, status: res.statusCode });
-              });
+              let buffer = [];
+              switch (encodingType) {
+                case 'gzip':
+                  res.pipe(zlib.createGunzip()).on('data', (chunk) => {
+                    buffer.push(chunk);
+                  }).on('end', () => {
+                    if (wasDestroyed) {
+                      return;
+                    }
+                    clearTimeout(timeout);
+                    this.successfulRequests += 1;
+                    resolve({ page: Buffer.concat(buffer).toString(), status: res.statusCode });
+                  });
+                  break;
+
+                case 'br':
+                  res.on('data', (chunk) => {
+                    buffer.push(chunk);
+                  }).on('end', () => {
+                    if (wasDestroyed) {
+                      return;
+                    }
+                    clearTimeout(timeout);
+                    this.successfulRequests += 1;
+                    zlib.brotliDecompress(Buffer.concat(buffer), (err, bufOut) => {
+                      resolve({ page: bufOut.toString(), status: res.statusCode });
+                    });
+
+                  });
+                  break;
+
+                case undefined:
+                  res.on('data', (data) => {
+                    page += data;
+                  });
+                  res.on('end', () => {
+                    if (wasDestroyed) {
+                      return;
+                    }
+                    clearTimeout(timeout);
+                    this.successfulRequests += 1;
+                    resolve({ page: page, status: res.statusCode });
+                  });
+                  break;
+                default:
+                  throw new Error(`Unexpected encodingtype ${encodingType}`);
+              }
               break;
 
             case 303:
