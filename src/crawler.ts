@@ -4,10 +4,12 @@ import { Web } from "./Web";
 import { ActiveDogs, WatchDog } from "./WatchDog";
 import { RequestManager } from "./RequestManager";
 
-function exit() {
+function exit(hard: boolean = true) {
     console.log("Gracefully exiting");
     DBManager.close();
-    process.exit();
+    if(hard) {
+        process.exit();
+    }    
 }
 
 function main() {
@@ -25,7 +27,7 @@ function main() {
         });*/
 
         let web = new Web(rm, () => {
-            web.addURL(new URL(startUrl), true, () => /*console.log(web.toString())*/{});
+            web.addURL(new URL(startUrl), true, () => exit(false));
         });
 
     } else {

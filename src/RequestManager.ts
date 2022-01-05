@@ -52,6 +52,10 @@ export class RequestManager {
     return s;
   }
 
+  isProcessing(): boolean {
+    return this.activeRequests.length > 0 || this.requestQueue.length > 0;
+  }
+
   private queuePageRequest(url: URL) {
     return new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
       this.requestQueue.push(() => {

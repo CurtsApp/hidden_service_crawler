@@ -22,8 +22,8 @@ export class Web {
         this.knownHosts = {};
         this.dbm.getSiteTitleMap((results) => {
             results.forEach(result => {
-                this.knownSites[result.link] = result.title;
-                let resultHostName = new URL(result.link).hostName;
+                this.knownSites[result.url] = result.title;
+                let resultHostName = new URL(result.url).hostName;
                 if(this.knownHosts[resultHostName]) {
                     this.knownHosts[resultHostName] += 1;
                 } else {
@@ -65,7 +65,8 @@ export class Web {
             this.dbm.storeSite(url);
             this.dbm.logSiteAccess(url, UniqueStatus.GENERIC_FAILURE);
         }).finally(() => {
-            if (onComplete) {
+            // Call onComplete only once after recursion is finished
+            if (onComplete && !this.rm.isProcessing()) {
                 onComplete();
             }
         });
