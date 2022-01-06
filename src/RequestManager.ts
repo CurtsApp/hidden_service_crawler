@@ -4,7 +4,6 @@ const http = require('http');
 const https = require('https');
 const zlib = require('zlib');
 
-import { ActiveDogs, WatchDogManager } from "./WatchDog";
 import { addPath } from "./webUtils";
 const {
   SocksProxyAgent
@@ -23,22 +22,22 @@ export enum UniqueStatus {
 }
 
 export class RequestManager {
-  requestQueue: (() => void)[];
-  activeRequests: {url: URL, startTime: number}[];
+  requestQueue: { [hostName: string]: (() => void)[] };
+  activeRequests: { [hostName: string]: { url: URL, startTime: number } };
   processedRequests: number;
   successfulRequests: number;
   startTime: number;
 
   constructor() {
-    this.requestQueue = [];
-    this.activeRequests = [];
+    this.requestQueue = {};
+    this.activeRequests = {};
     this.processedRequests = 0;
     this.successfulRequests = 0;
     this.startTime = Date.now();
   }
 
   getPage(url: URL) {
-    if (this.activeRequests.length < MAX_CONCURRENT_REQUESTS) {
+    if (Object.keys(this.activeRequests).length < MAX_CONCURRENT_REQUESTS) {
       return this.getRequest(url);
     } else {
       return this.queuePageRequest(url);
@@ -48,26 +47,33 @@ export class RequestManager {
   getActiveRequestString(): string {
     let s = "";
     let now = Date.now();
-    this.activeRequests.map(request => s += `${request.url} ${((now - request.startTime) / 1000).toFixed(1)}secs ago\n`)
+    Object.keys(this.activeRequests).forEach((key) => {
+      let request = this.activeRequests[key];
+      s += `${request.url} ${((now - request.startTime) / 1000).toFixed(1)}secs ago\n`;
+    })
     return s;
   }
 
   isProcessing(): boolean {
-    return this.activeRequests.length > 0 || this.requestQueue.length > 0;
+    return Object.keys(this.activeRequests).length > 0 || Object.keys(this.requestQueue).length > 0;
   }
 
   private queuePageRequest(url: URL) {
     return new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
-      this.requestQueue.push(() => {
-        this.getRequest(url).then((res) => resolve(res)).catch((e) => reject(e));
-      });
+      let request = () => this.getRequest(url).then((res) => resolve(res)).catch((e) => reject(e));
+      // request queue keys are cleared if length == 0
+      if (this.requestQueue[url.hostName]) {
+        this.requestQueue[url.hostName].push(request);
+      } else {
+        this.requestQueue[url.hostName] = [request];
+      }
     });
   }
 
   private clearActiveRequest(url: URL) {
-    let startLength = this.activeRequests.length;
-    this.activeRequests = this.activeRequests.filter((element) => element.url.getFull() !== url.getFull());
-    if (startLength === this.activeRequests.length) {
+    let startLength = Object.keys(this.activeRequests).length;
+    delete this.activeRequests[url.hostName];
+    if (startLength === Object.keys(this.activeRequests).length) {
       console.log(`Not found in active queue: ${url}`);
     }
 
@@ -75,11 +81,36 @@ export class RequestManager {
   // Called after every getRequest
   private onRequestComplete(url: URL) {
     this.clearActiveRequest(url);
-    if (this.requestQueue.length > 0) {
+    let queueKeys = Object.keys(this.requestQueue);
+    if (queueKeys.length > 0) {
+      let nextRequestHostName = null;
+      let requestDelay = 0; //ms
+      // Try to queue the same host name first
+      if (this.requestQueue[url.hostName]) {
+        nextRequestHostName = url.hostName;
+        // Delay between 250ms - 750ms
+        requestDelay = (Math.random() * 500) + 250;
+      } else {
+        let keyIndex = 0;
+        // Don't queue an already active host name
+        while (this.activeRequests[queueKeys[keyIndex]]) {
+          keyIndex += 1;
+        }
+        nextRequestHostName = queueKeys[keyIndex];
+      }
       // Remove the next request before running it to prevent running it twice
-      let nextRequest = this.requestQueue.shift();
+      let nextRequest = this.requestQueue[nextRequestHostName].shift();
+      if (this.requestQueue[nextRequestHostName].length === 0) {
+        delete this.requestQueue[nextRequestHostName];
+      }
       // Execute the request
-      nextRequest();
+      if (requestDelay === 0) {
+        nextRequest();
+      } else {
+        // Prevent additional active requests from being queued during the delay
+        this.activeRequests[url.hostName] = { url, startTime: -1 }
+        setTimeout(nextRequest, requestDelay);
+      }
     }
     this.processedRequests += 1;
     if (this.processedRequests % 10 === 0) {
@@ -92,11 +123,11 @@ export class RequestManager {
       // Active request gets cleared by onRequestComplete
       // Retried URLs are tracked by original URL
       if (retryCount === 0) {
-        this.activeRequests.push({url, startTime: Date.now()});
+        this.activeRequests[url.hostName] = { url, startTime: Date.now() };
       }
 
       // Debugging assertion
-      if (this.activeRequests.length > MAX_CONCURRENT_REQUESTS) {
+      if (Object.keys(this.activeRequests).length > MAX_CONCURRENT_REQUESTS) {
         console.log(this.getActiveRequestString());
         console.log(`Upcoming: ${url}`);
         console.log(new Error().stack);
