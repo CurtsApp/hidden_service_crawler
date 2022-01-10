@@ -82,7 +82,7 @@ export class RequestManager {
 
   }
   // Called after every getRequest
-  private onRequestComplete(url: URL) {   
+  private onRequestComplete(url: URL) {
     this.clearActiveRequest(url);
     let queueKeys = Object.keys(this.requestQueue);
     if (queueKeys.length > 0) {
@@ -101,20 +101,24 @@ export class RequestManager {
         }
         nextRequestHostName = queueKeys[keyIndex];
       }
-      // Remove the next request before running it to prevent running it twice
-      let nextRequest = this.requestQueue[nextRequestHostName].shift();
-      if (this.requestQueue[nextRequestHostName].length === 0) {
-        delete this.requestQueue[nextRequestHostName];
-      }
-      // Execute the request
-      if (requestDelay === 0) {
-        nextRequest();
-      } else {
-        // Prevent additional active requests from being queued during the delay
-        this.activeRequests[url.hostName] = { url, startTime: -1 };
-        setTimeout(() => {
+
+      // If no next request host name was available all hosts in queue are currently active. Don't start a new request
+      if (nextRequestHostName) {
+        // Remove the next request before running it to prevent running it twice
+        let nextRequest = this.requestQueue[nextRequestHostName].shift();
+        if (this.requestQueue[nextRequestHostName].length === 0) {
+          delete this.requestQueue[nextRequestHostName];
+        }
+        // Execute the request
+        if (requestDelay === 0) {
           nextRequest();
-        }, requestDelay);
+        } else {
+          // Prevent additional active requests from being queued during the delay
+          this.activeRequests[url.hostName] = { url, startTime: -1 };
+          setTimeout(() => {
+            nextRequest();
+          }, requestDelay);
+        }
       }
     }
     this.processedRequests += 1;
