@@ -8,6 +8,7 @@ export class Site {
     title: string;
     links: URL[];
     pageStatus: number; // HTTP Status code
+    relocatedTo?: URL; //If site was relocated, where to?
     error: any;
 
     private constructor(url: URL, rm: RequestManager, onComplete?: (site: Site) => void) {
@@ -17,6 +18,9 @@ export class Site {
 
         rm.getPage(this.url).then(result => {
             this.pageStatus = result.status;
+            if(result.redirectUrl) {
+                this.relocatedTo = result.redirectUrl;
+            }
             if (result.page !== null) {
                 this.title = getPageTitle(result.page);
                 getPageLinks(result.page).forEach(link => this.links.push(new URL(link)));

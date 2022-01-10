@@ -12,9 +12,11 @@ const {
 const agent = new SocksProxyAgent('socks5h://127.0.0.1:9050');
 const TOR_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0";
 const MAX_RETRY_CNT = 3;
+const RETRY_DELAY_MIN = 1.5 * 1000; //1.5 sec 
+const RETRY_VARIANCE = 1000;
 const CONNECTION_TIMEOUT_TIME = 11 * 1000; //11 seconds
 const DATA_TIMEOUT_TIME = 31 * 1000; //31 seconds
-const MAX_CONCURRENT_REQUESTS = 90; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
+const MAX_CONCURRENT_REQUESTS = 60; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
 
 export enum UniqueStatus {
   GENERIC_FAILURE = -1,
@@ -36,8 +38,10 @@ export class RequestManager {
     this.startTime = Date.now();
   }
 
-  getPage(url: URL) {
-    if (Object.keys(this.activeRequests).length < MAX_CONCURRENT_REQUESTS) {
+  getPage(url: URL): Promise<{ page: string; status: number; redirectUrl?: URL; }> {
+    // Each host is only have allowed to have one active request at a time
+    if (Object.keys(this.activeRequests).length < MAX_CONCURRENT_REQUESTS && !this.activeRequests[url.hostName]) {
+      console.log("Get from page");
       return this.getRequest(url);
     } else {
       return this.queuePageRequest(url);
@@ -47,8 +51,7 @@ export class RequestManager {
   getActiveRequestString(): string {
     let s = "";
     let now = Date.now();
-    Object.keys(this.activeRequests).forEach((key) => {
-      let request = this.activeRequests[key];
+    Object.values(this.activeRequests).forEach((request) => {
       s += `${request.url} ${((now - request.startTime) / 1000).toFixed(1)}secs ago\n`;
     })
     return s;
@@ -58,9 +61,9 @@ export class RequestManager {
     return Object.keys(this.activeRequests).length > 0 || Object.keys(this.requestQueue).length > 0;
   }
 
-  private queuePageRequest(url: URL) {
-    return new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
-      let request = () => this.getRequest(url).then((res) => resolve(res)).catch((e) => reject(e));
+  private queuePageRequest(url: URL, retryCount: number = 0) {
+    return new Promise((resolve: (result: { page: string, status: number, redirectUrl?: URL }) => void, reject) => {
+      let request = () => this.getRequest(url, retryCount).then((res) => resolve(res)).catch((e) => reject(e));
       // request queue keys are cleared if length == 0
       if (this.requestQueue[url.hostName]) {
         this.requestQueue[url.hostName].push(request);
@@ -79,14 +82,14 @@ export class RequestManager {
 
   }
   // Called after every getRequest
-  private onRequestComplete(url: URL) {
+  private onRequestComplete(url: URL) {   
     this.clearActiveRequest(url);
     let queueKeys = Object.keys(this.requestQueue);
     if (queueKeys.length > 0) {
       let nextRequestHostName = null;
       let requestDelay = 0; //ms
       // Try to queue the same host name first
-      if (this.requestQueue[url.hostName]) {
+      if (url && this.requestQueue[url.hostName]) {
         nextRequestHostName = url.hostName;
         // Delay between 250ms - 750ms
         requestDelay = (Math.random() * 500) + 250;
@@ -108,23 +111,22 @@ export class RequestManager {
         nextRequest();
       } else {
         // Prevent additional active requests from being queued during the delay
-        this.activeRequests[url.hostName] = { url, startTime: -1 }
-        setTimeout(nextRequest, requestDelay);
+        this.activeRequests[url.hostName] = { url, startTime: -1 };
+        setTimeout(() => {
+          nextRequest();
+        }, requestDelay);
       }
     }
     this.processedRequests += 1;
     if (this.processedRequests % 10 === 0) {
-      console.log(`Active Requests: ${this.activeRequests.length}\nQueue Length: ${this.requestQueue.length}\nProcessed Requests: ${this.processedRequests}\nProcessed Requests / sec: ${(this.processedRequests / ((Date.now() - this.startTime) / 1000)).toFixed(2)}\nSuccessful Requests: ${((this.successfulRequests / this.processedRequests) * 100).toFixed(2)}%`);
+      console.log(`Active Requests: ${Object.keys(this.activeRequests).length}\nQueue Length: ${Object.keys(this.requestQueue).length}\nProcessed Requests: ${this.processedRequests}\nProcessed Requests / sec: ${(this.processedRequests / ((Date.now() - this.startTime) / 1000)).toFixed(2)}\nSuccessful Requests: ${((this.successfulRequests / this.processedRequests) * 100).toFixed(2)}%`);
     }
   }
 
   private getRequest(url: URL, retryCount: number = 0) {
-    return new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
-      // Active request gets cleared by onRequestComplete
-      // Retried URLs are tracked by original URL
-      if (retryCount === 0) {
-        this.activeRequests[url.hostName] = { url, startTime: Date.now() };
-      }
+    return new Promise((resolve: (result: { page: string, status: number, redirectUrl?: URL }) => void, reject) => {
+      // Active request gets cleared by onRequestComplete or retryRequest
+      this.activeRequests[url.hostName] = { url, startTime: Date.now() };
 
       // Debugging assertion
       if (Object.keys(this.activeRequests).length > MAX_CONCURRENT_REQUESTS) {
@@ -134,15 +136,15 @@ export class RequestManager {
         process.exit();
       }
 
-      let requestWrapper = new Promise((resolve: (result: { page: string, status: number }) => void, reject) => {
+      let requestWrapper = new Promise((resolve: (result: { page: string, status: number, redirectURL?: URL }) => void, reject) => {
         // On a retried request one http request has ended in a way that triggers a new request to be needed
         // Function is declared here to preserve this binding and access resolve/reject
-        let retryRequest = (retryURL: URL, retryCount: number) => {
-          // Clear previously requested URL not new one
-          //this.clearActiveRequest(url);
-          this.getRequest(retryURL, retryCount + 1).then(res => {
-            resolve(res);
-          }).catch(e => reject(e));
+        let retryRequest = (retryCount: number) => {
+          setTimeout(() => {
+            this.getRequest(url, retryCount + 1).then(res => {
+              resolve(res);
+            }).catch(e => reject(e));
+          }, ((Math.random() * RETRY_VARIANCE) + RETRY_DELAY_MIN));
         };
 
         // Might have to swap between http and https if sites use https
@@ -255,11 +257,7 @@ export class RequestManager {
             // Moved temporarily
             case 301:
               // Moved permanetly
-              if (retryCount > MAX_RETRY_CNT) {
-                console.log(`Max redirect count reacted for: ${url}`);
-                resolve({ page: null, status: res.statusCode });
-                return;
-              }
+
               let locationURL = null;
               try {
                 locationURL = new URL(res.headers.location);
@@ -268,7 +266,7 @@ export class RequestManager {
               }
 
               console.log(`Redirectiong (${res.statusCode})...\nFrom: ${url}\nTo:   ${locationURL}`);
-              retryRequest(locationURL, retryCount);
+              resolve({ page: null, status: res.statusCode, redirectURL: locationURL });
               break;
 
             case 300:
@@ -310,7 +308,7 @@ export class RequestManager {
                 return;
               }
               // Retry getting the same data
-              retryRequest(url, retryCount);
+              retryRequest(retryCount);
               break;
 
             default:

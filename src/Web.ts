@@ -67,6 +67,11 @@ export class Web {
         this.dbm.storeSite(site.url, site.title);
         this.dbm.logSiteAccess(site.url, site.pageStatus);
 
+        // Add site of relocated urls
+        if(site.relocatedTo) {
+            this.addURL(site.relocatedTo, true, onComplete);
+        }
+
         if (recursive) {
             if (this.attempts > MAX_SITE_ATTEMPTS) {
                 console.log("Max attempts reached");
