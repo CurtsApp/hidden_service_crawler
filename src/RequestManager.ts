@@ -4,7 +4,7 @@ const http = require('http');
 const https = require('https');
 const zlib = require('zlib');
 
-import { addPath } from "./webUtils";
+import { addPath, getCookieFromHeader, getCookieString } from "./webUtils";
 const {
   SocksProxyAgent
 } = require('socks-proxy-agent');
@@ -23,6 +23,18 @@ export enum UniqueStatus {
   DATA_TIMEOUT = -2
 }
 
+export interface Cookie {
+  key: string,
+  value: string
+}
+
+interface PageResult {
+  page: string,
+  status: number
+  setCookies?: Cookie[]
+  redirectUrl?: URL
+}
+
 export class RequestManager {
   requestQueue: { [hostName: string]: (() => void)[] };
   activeRequests: { [hostName: string]: { url: URL, startTime: number } };
@@ -38,13 +50,13 @@ export class RequestManager {
     this.startTime = Date.now();
   }
 
-  getPage(url: URL): Promise<{ page: string; status: number; redirectUrl?: URL; }> {
+  getPage(url: URL, cookies?: Cookie[]): Promise<PageResult> {
     // Each host is only have allowed to have one active request at a time
     if (Object.keys(this.activeRequests).length < MAX_CONCURRENT_REQUESTS && !this.activeRequests[url.hostName]) {
       console.log("Get from page");
-      return this.getRequest(url);
+      return this.getRequest(url, cookies);
     } else {
-      return this.queuePageRequest(url);
+      return this.queuePageRequest(url, cookies);
     }
   }
 
@@ -61,9 +73,9 @@ export class RequestManager {
     return Object.keys(this.activeRequests).length > 0 || Object.keys(this.requestQueue).length > 0;
   }
 
-  private queuePageRequest(url: URL, retryCount: number = 0) {
-    return new Promise((resolve: (result: { page: string, status: number, redirectUrl?: URL }) => void, reject) => {
-      let request = () => this.getRequest(url, retryCount).then((res) => resolve(res)).catch((e) => reject(e));
+  private queuePageRequest(url: URL, cookies?: Cookie[], retryCount: number = 0) {
+    return new Promise((resolve: (result: PageResult) => void, reject) => {
+      let request = () => this.getRequest(url, cookies, retryCount).then((res) => resolve(res)).catch((e) => reject(e));
       // request queue keys are cleared if length == 0
       if (this.requestQueue[url.hostName]) {
         this.requestQueue[url.hostName].push(request);
@@ -127,8 +139,8 @@ export class RequestManager {
     }
   }
 
-  private getRequest(url: URL, retryCount: number = 0) {
-    return new Promise((resolve: (result: { page: string, status: number, redirectUrl?: URL }) => void, reject) => {
+  private getRequest(url: URL, cookies?: Cookie[], retryCount: number = 0) {
+    return new Promise((resolve: (result: PageResult) => void, reject) => {
       // Active request gets cleared by onRequestComplete or retryRequest
       this.activeRequests[url.hostName] = { url, startTime: Date.now() };
 
@@ -140,12 +152,12 @@ export class RequestManager {
         process.exit();
       }
 
-      let requestWrapper = new Promise((resolve: (result: { page: string, status: number, redirectURL?: URL }) => void, reject) => {
+      let requestWrapper = new Promise((resolve: (result: PageResult) => void, reject) => {
         // On a retried request one http request has ended in a way that triggers a new request to be needed
         // Function is declared here to preserve this binding and access resolve/reject
         let retryRequest = (retryCount: number) => {
           setTimeout(() => {
-            this.getRequest(url, retryCount + 1).then(res => {
+            this.getRequest(url, cookies, retryCount + 1).then(res => {
               resolve(res);
             }).catch(e => reject(e));
           }, ((Math.random() * RETRY_VARIANCE) + RETRY_DELAY_MIN));
@@ -153,18 +165,24 @@ export class RequestManager {
 
         // Might have to swap between http and https if sites use https
         // Headers "Host" and "X-Amzn-Trace-Id" added automatically
+        const headers = {
+          'User-Agent': TOR_BROWSER_USER_AGENT,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1'
+        }
+
+        if (cookies && cookies.length > 0) {
+          // @ts-ignore
+          headers.Cookie = getCookieString(cookies);
+        }
         const options = {
-          headers: {
-            'User-Agent': TOR_BROWSER_USER_AGENT,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'Upgrade-Insecure-Requests': '1'
-          },
+          headers,
           agent
         };
 
@@ -183,7 +201,6 @@ export class RequestManager {
                 wasDestroyed = true;
                 res.destroy();
                 let partialPage = "";
-
                 switch (encodingType) {
                   case "gzip":
                     partialPage = Buffer.concat(buffer).toString();
@@ -200,7 +217,11 @@ export class RequestManager {
                     break;
                 }
               }, DATA_TIMEOUT_TIME);
-
+              let cookies = [];
+              let cookieValues = res.headers['set-cookie'];
+              if(cookieValues && cookieValues.length > 0 ) {
+                cookieValues.forEach(value => cookies.push(getCookieFromHeader(value)));
+              }
               let page = '';
               let buffer = [];
               switch (encodingType) {
@@ -213,7 +234,7 @@ export class RequestManager {
                     }
                     clearTimeout(timeout);
                     this.successfulRequests += 1;
-                    resolve({ page: Buffer.concat(buffer).toString(), status: res.statusCode });
+                    resolve({ page: Buffer.concat(buffer).toString(), status: res.statusCode, setCookies: cookies});
                   });
                   break;
 
@@ -227,7 +248,7 @@ export class RequestManager {
                     clearTimeout(timeout);
                     this.successfulRequests += 1;
                     zlib.brotliDecompress(Buffer.concat(buffer), (err, bufOut) => {
-                      resolve({ page: bufOut.toString(), status: res.statusCode });
+                      resolve({ page: bufOut.toString(), status: res.statusCode, setCookies: cookies });
                     });
 
                   });
@@ -243,7 +264,7 @@ export class RequestManager {
                     }
                     clearTimeout(timeout);
                     this.successfulRequests += 1;
-                    resolve({ page: page, status: res.statusCode });
+                    resolve({ page: page, status: res.statusCode, setCookies: cookies });
                   });
                   break;
                 default:
@@ -270,7 +291,7 @@ export class RequestManager {
               }
 
               console.log(`Redirectiong (${res.statusCode})...\nFrom: ${url}\nTo:   ${locationURL}`);
-              resolve({ page: null, status: res.statusCode, redirectURL: locationURL });
+              resolve({ page: null, status: res.statusCode, redirectUrl: locationURL });
               break;
 
             case 300:
