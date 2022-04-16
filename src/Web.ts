@@ -78,7 +78,7 @@ export class Web {
 
         site.links.forEach(link => {
             //console.log(`link ${site.url} to ${link}`);
-            //this.dbm.logLink(site.url, link);
+            this.dbm.logLink(site.url, link);
         });
         if(site.keywords.length > 0) {
             this.dbm.logKeywords(site.url, site.keywords);
