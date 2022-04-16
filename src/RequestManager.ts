@@ -20,7 +20,11 @@ const MAX_CONCURRENT_REQUESTS = 60; // Need to do benchmarks outside of the VM, 
 
 export enum UniqueStatus {
   GENERIC_FAILURE = -1,
-  DATA_TIMEOUT = -2
+  DATA_TIMEOUT = -2,
+  GZIP_ERROR = -3,
+  BR_ERROR = -4,
+  DEFLATE_ERROR = -5,
+  NO_COMPRESS_ERROR = -6
 }
 
 export interface Cookie {
@@ -235,6 +239,12 @@ export class RequestManager {
                     clearTimeout(timeout);
                     this.successfulRequests += 1;
                     resolve({ page: Buffer.concat(buffer).toString(), status: res.statusCode, setCookies: cookies});
+                  }).on('error', () => {
+                    if (wasDestroyed) {
+                      return;
+                    }
+                    clearTimeout(timeout);
+                    resolve({ page: null, status: UniqueStatus.GZIP_ERROR});
                   });
                   break;
 
@@ -249,6 +259,12 @@ export class RequestManager {
                     this.successfulRequests += 1;
                     zlib.brotliDecompress(Buffer.concat(buffer), (err, bufOut) => {
                       resolve({ page: bufOut.toString(), status: res.statusCode, setCookies: cookies });
+                    }).on('error', () => {
+                      if (wasDestroyed) {
+                        return;
+                      }
+                      clearTimeout(timeout);
+                      resolve({ page: null, status: UniqueStatus.BR_ERROR});
                     });
 
                   });
@@ -265,6 +281,12 @@ export class RequestManager {
                     clearTimeout(timeout);
                     this.successfulRequests += 1;
                     resolve({ page: page, status: res.statusCode, setCookies: cookies });
+                  }).on('error', () => {
+                    if (wasDestroyed) {
+                      return;
+                    }
+                    clearTimeout(timeout);
+                    resolve({ page: null, status: UniqueStatus.NO_COMPRESS_ERROR});
                   });
                   break;
                 default:

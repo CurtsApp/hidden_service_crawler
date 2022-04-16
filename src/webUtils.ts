@@ -54,7 +54,7 @@ export function getPageKeywords(pageString) {
     
   let foundWordCounts = {};
   let match = getVisibleTextRegEx.exec(pageString);
-  let breakOut = 0;
+
   while (match != null) {
     let cleanedMatch = match[0].trim();
     EXCLUDED_CHARACTERS.forEach(character => cleanedMatch = cleanedMatch.replace(character, " "));
