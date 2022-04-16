@@ -259,14 +259,13 @@ export class RequestManager {
                     this.successfulRequests += 1;
                     zlib.brotliDecompress(Buffer.concat(buffer), (err, bufOut) => {
                       resolve({ page: bufOut.toString(), status: res.statusCode, setCookies: cookies });
-                    }).on('error', () => {
-                      if (wasDestroyed) {
-                        return;
-                      }
-                      clearTimeout(timeout);
-                      resolve({ page: null, status: UniqueStatus.BR_ERROR});
                     });
-
+                  }).on('error', () => {
+                    if (wasDestroyed) {
+                      return;
+                    }
+                    clearTimeout(timeout);
+                    resolve({ page: null, status: UniqueStatus.BR_ERROR});
                   });
                   break;
 
