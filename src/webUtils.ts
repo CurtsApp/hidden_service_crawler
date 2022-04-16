@@ -13,7 +13,7 @@ export function addPath(url: URL, path: string) {
 export function getPageLinks(pageString) {
   let getOnionsRegEx = new RegExp(VALID_ONION_REGEX, 'g');
 
-  let matches = [];
+  let matches:string[] = [];
   let match = getOnionsRegEx.exec(pageString);
   while (match != null) {
     matches.push(match[0]);
@@ -33,6 +33,53 @@ export function getPageTitle(pageString) {
     return matchString;
   }
   return null;
+}
+
+const EXCLUDED_WORDS = {
+  a: true,
+  the: true,
+  an: true,
+  this: true,
+  that: true,
+  to: true,
+  of: true,
+  you: true,
+  are: true
+}
+const KEYWORD_COUNT = 50;
+
+export function getPageKeywords(pageString) {
+  const EXCLUDED_CHARACTERS = [',', '>', '<'];
+  const getVisibleTextRegEx = new RegExp('>[\\w\\s]*<', 'g');
+    
+  let foundWordCounts = {};
+  let match = getVisibleTextRegEx.exec(pageString);
+  let breakOut = 0;
+  while (match != null) {
+    let cleanedMatch = match[0].trim();
+    EXCLUDED_CHARACTERS.forEach(character => cleanedMatch = cleanedMatch.replace(character, " "));
+    cleanedMatch.split(" ").forEach(dirtyWord => {
+      let word = dirtyWord.trim().toLowerCase();
+      if(word) {
+        if(foundWordCounts[word]) {
+          foundWordCounts[word] += 1;
+        } else {
+          foundWordCounts[word] = 1;
+        }
+      }      
+    });
+    match = getVisibleTextRegEx.exec(pageString);
+  }
+
+  let keywords = [];
+
+  Object.keys(foundWordCounts).sort((a,b) => foundWordCounts[b] - foundWordCounts[a]).forEach((word) => {
+    if(keywords.length < KEYWORD_COUNT && !EXCLUDED_WORDS[word]) {
+      keywords.push(word);
+    }
+  });
+  
+  return keywords;
 }
 
 export function getPageRefreshTimer(pageString): number {

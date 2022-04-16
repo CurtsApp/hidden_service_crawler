@@ -34,7 +34,7 @@ export class URL {
     }
 
     getFull(): string {
-        return `${this.protocol}://${this.hostName}.onion${this.getPath()}${this.containsSlashSuffix ? "/" : ""}`
+        return `${this.protocol}://${this.hostName}.onion${this.getSuffix()}`
     }
 
     toString(): string {
@@ -48,5 +48,39 @@ export class URL {
         }
         this.path.forEach(segment => path += `/${segment}`)
         return path;
+    }
+
+    getSuffix(): string {
+        return `${this.getPath()}${this.containsSlashSuffix ? "/" : ""}`
+    }
+
+    isEqual(url: URL): boolean {
+        // Check hostname
+        if(url.hostName !== this.hostName) {
+            return false;
+        }
+        // Check paths
+        if(url.path.length !== this.path.length) {
+            return false;
+        }
+        let pathEqual = true;
+        url.path.forEach((segment, i) => {
+            if(segment !== this.path[i]) {
+                pathEqual = false;
+            }
+        });
+        if(!pathEqual) {
+            return false;
+        }
+        // Check protocol
+        if(url.protocol !== this.protocol) {
+            return false;
+        }
+        // Check suffix
+        if(url.containsSlashSuffix !== this.containsSlashSuffix) {
+            return false;
+        }
+
+        return true;
     }
 }

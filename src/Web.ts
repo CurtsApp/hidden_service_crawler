@@ -3,7 +3,7 @@ import { RequestManager, UniqueStatus } from "./RequestManager";
 import { Site } from "./Site";
 import { URL } from "./URL";
 
-const MAX_SITE_ATTEMPTS = 25000;
+const MAX_SITE_ATTEMPTS = 250000;
 
 export class Web {
     attempts: number;
@@ -66,9 +66,27 @@ export class Web {
 
         this.dbm.storeSite(site.url, site.title);
         this.dbm.logSiteAccess(site.url, site.pageStatus);
+        // debug to detect duplicate links. Should be removed in Site creation
+        site.links.forEach((link, i) => {
+            for(let j = 0; j < i; j++) {
+                if(site.links[j].isEqual(link)) {
+                    console.log(`Duplicate link:\n${site.url}\n${link}\n${site.links[j]}`);
+                    throw new Error(`Duplicate link: ${site.url} to ${link}`);
+                }
+            }
+        });        
+
+        site.links.forEach(link => {
+            //console.log(`link ${site.url} to ${link}`);
+            //this.dbm.logLink(site.url, link);
+        });
+        if(site.keywords.length > 0) {
+            this.dbm.logKeywords(site.url, site.keywords);
+        }      
 
         // Add site of relocated urls
         if(site.relocatedTo) {
+            this.dbm.logRedirect(site.url, site.relocatedTo);
             this.addURL(site.relocatedTo, true, onComplete);
         }
 
