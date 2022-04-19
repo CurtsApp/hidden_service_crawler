@@ -1,4 +1,4 @@
-import { getUrlsFromLinkRow } from "./dbUtils";
+import { getComponentsFromUrl, getUrlsFromLinkRow } from "./dbUtils";
 import { URL } from "./URL";
 const sqlite3 = require('sqlite3').verbose();
 
@@ -8,18 +8,18 @@ export interface SitesRow {
 }
 
 export interface PingsRow {
-    url: string,
-    accessTime: number,
-    statusCode: number
+    link: string,
+    access_time: number,
+    status_code: number
 }
 
 export interface LinksRow {
-    fromProtcolIsSecure: 0 | 1, // 0 or 1 for true or false
-    fromHostname: string,
-    fromPath: string,
-    toProtcolIsSecure: 0 | 1,
-    toHostname: string,
-    toPath: string
+    from_protocol_is_secure: 0 | 1, // 0 or 1 for true or false
+    from_hostname: string,
+    from_path: string,
+    to_protocol_is_secure: 0 | 1,
+    to_hostname: string,
+    to_path: string
 }
 
 export interface RedirectsRow {
@@ -42,7 +42,8 @@ export class DBManager {
     private queuedRows: {
         sites: SitesRow[];
         pings: PingsRow[];
-        links: LinksRow[];
+        addLinks: LinksRow[];
+        delLinks: LinksRow[];
         redirects: RedirectsRow[];
         keywords: KeywordsRow[];
     };
@@ -79,7 +80,7 @@ export class DBManager {
     }
 
     private writeSite(siteRow: SitesRow) {
-        this.db.run("INSERT INTO sites(link, title) VALUES (?, ?);",
+        this.db.run("INSERT OR REPLACE INTO sites(link, title) VALUES (?, ?);",
             [siteRow.url, siteRow.title],
             (err) => {
                 if (err) {
@@ -91,16 +92,16 @@ export class DBManager {
     logSiteAccess(url: URL, status: number) {
         let now = Date.now();
         this.queuedRows.pings.push({
-            url: url.getFull(),
-            accessTime: now,
-            statusCode: status
+            link: url.getFull(),
+            access_time: now,
+            status_code: status
         });
         this.checkQueueStatus();
     }
 
     private writePing(pingRow: PingsRow) {
         this.db.run("INSERT INTO pings(link, access_time, status_code) VALUES (?, ?, ?);",
-            [pingRow.url, pingRow.accessTime, pingRow.statusCode],
+            [pingRow.link, pingRow.access_time, pingRow.status_code],
             (err) => {
                 if (err) {
                     throw new Error(err);
@@ -109,26 +110,56 @@ export class DBManager {
     }
 
     logLink(fromURL: URL, toURL: URL) {
-        console.log(`from: ${fromURL} to: ${toURL}`);
-        this.queuedRows.links.push({
-            fromProtcolIsSecure: fromURL.protocol === "https" ? 1 : 0,
-            fromHostname: fromURL.hostName,
-            fromPath: fromURL.getSuffix(),
-            toProtcolIsSecure: toURL.protocol === "https" ? 1 : 0,
-            toHostname: toURL.hostName,
-            toPath: toURL.getSuffix()
+        const fromComponents = getComponentsFromUrl(fromURL);
+        const toComponents = getComponentsFromUrl(toURL);
+
+        this.queuedRows.addLinks.push({
+            from_protocol_is_secure: fromComponents.isSecure,
+            from_hostname: fromComponents.hostname,
+            from_path: fromComponents.path,
+            to_protocol_is_secure: toComponents.isSecure,
+            to_hostname: toComponents.hostname,
+            to_path: toComponents.path
+        });
+        this.checkQueueStatus();
+    }
+
+    deleteLink(fromURL: URL, toURL: URL) {
+        const fromComponents = getComponentsFromUrl(fromURL);
+        const toComponents = getComponentsFromUrl(toURL);
+
+        this.queuedRows.delLinks.push({
+            from_protocol_is_secure: fromComponents.isSecure,
+            from_hostname: fromComponents.hostname,
+            from_path: fromComponents.path,
+            to_protocol_is_secure: toComponents.isSecure,
+            to_hostname: toComponents.hostname,
+            to_path: toComponents.path
         });
         this.checkQueueStatus();
     }
 
     private writeLink(linkRow: LinksRow) {
-        let debug = getUrlsFromLinkRow(linkRow);
-        //console.log(`from: ${debug.from} to: ${debug.to}`);
         this.db.run("INSERT INTO links(from_protocol_is_secure, from_hostname, from_path, to_protocol_is_secure, to_hostname, to_path) VALUES (?, ?, ?, ?, ?, ?);",
-            [linkRow.fromProtcolIsSecure, linkRow.fromHostname, linkRow.fromPath, linkRow.toProtcolIsSecure, linkRow.toHostname, linkRow.toPath],
+            [linkRow.from_protocol_is_secure, linkRow.from_hostname, linkRow.from_path, linkRow.to_protocol_is_secure, linkRow.to_hostname, linkRow.to_path],
             (err) => {
                 if (err) {
-                    console.log(`error on: from: ${debug.from} to: ${debug.to}`);
+                    throw new Error(err);
+                }
+            });
+    }
+
+    private writeDeleteLink(linkRow: LinksRow) {
+        this.db.run(`DELETE FROM links
+              WHERE from_protocol_is_secure = ? 
+                AND from_hostname = ? 
+                AND from_path = ?
+                AND to_protocol_is_secure = ?
+                AND to_hostname = ?
+                AND to_path = ?;`,
+                [linkRow.from_protocol_is_secure, linkRow.from_hostname, linkRow.from_path, linkRow.to_protocol_is_secure, linkRow.to_hostname, linkRow.to_path],
+            (err) => {
+                if (err) {
                     throw new Error(err);
                 }
             });
@@ -143,7 +174,7 @@ export class DBManager {
     }
 
     private writeRedirect(redirectRow: RedirectsRow) {
-        this.db.run("INSERT INTO redirects(from_link, to_link) VALUES (?, ?);",
+        this.db.run("INSERT OR REPLACE INTO redirects(from_link, to_link) VALUES (?, ?);",
             [redirectRow.fromLink, redirectRow.toLink],
             (err) => {
                 if (err) {
@@ -163,7 +194,7 @@ export class DBManager {
     }
 
     private writeKeywords(keywordRow: KeywordsRow) {
-        this.db.run("INSERT INTO keywords(link, keywords) VALUES (?, ?);",
+        this.db.run("INSERT OR REPLACE INTO keywords(link, keywords) VALUES (?, ?);",
             [keywordRow.url, keywordRow.keywords],
             (err) => {
                 if (err) {
@@ -182,6 +213,37 @@ export class DBManager {
         });
     }
 
+    // Get most recent ping for each site only
+    getLastPingForSites(onComplete: (results: PingsRow[]) => void) {
+        this.db.all(`SELECT link, MAX(access_time) AS access_time, status_code FROM pings GROUP BY link;`, (err, rows) => {
+            if (err) {
+                throw new Error(err);
+            }
+
+            onComplete(rows);
+        });
+    }
+
+    getLinksFromSite(url: URL, onComplete: (results: URL[]) => void) {
+        const components = getComponentsFromUrl(url);
+        this.db.all(`SELECT from_protocol_is_secure, from_hostname, from_path, to_protocol_is_secure, to_hostname, to_path FROM links 
+                      WHERE from_protocol_is_secure = ? 
+                        AND from_hostname = ? 
+                        AND from_path = ?;`,
+            [components.isSecure, components.hostname, components.path],
+            (err, rows: LinksRow[]) => {
+                if (err) {
+                    throw new Error(err);
+                }
+
+                const links = rows.map(link => {
+                    return getUrlsFromLinkRow(link).to
+                });
+
+                onComplete(links);
+            });
+    }
+
     commitQueuedInserts() {
         if (this.getInsertQueueLength() <= 0) {
             return;
@@ -193,7 +255,8 @@ export class DBManager {
             this.queuedRows.sites.forEach(site => this.writeSite(site));
             this.queuedRows.pings.forEach(ping => this.writePing(ping));
             this.queuedRows.keywords.forEach(keyword => this.writeKeywords(keyword));
-            this.queuedRows.links.forEach(link => this.writeLink(link));
+            this.queuedRows.addLinks.forEach(link => this.writeLink(link));
+            this.queuedRows.delLinks.forEach(link => this.writeDeleteLink(link));
             this.queuedRows.redirects.forEach(redirect => this.writeRedirect(redirect));
             this.db.run("COMMIT;");
         } catch (e) {
@@ -209,7 +272,8 @@ export class DBManager {
             sites: [],
             pings: [],
             keywords: [],
-            links: [],
+            addLinks: [],
+            delLinks: [],
             redirects: []
         };
     }

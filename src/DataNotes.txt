@@ -1,0 +1,15 @@
+When indexing a site:
+
+Get last ping. If last ping < (SOME TIME) don't index. (done)
+
+On Index...
+
+Add ping (done)
+Read all previous links, Add new links, remove missing links (done)
+Add or update title in Site (done)
+Add or update redirects (done)
+Add or update keywords (done)
+
+Things marked with done are implemented but need tested still
+
+Add timer to debug states

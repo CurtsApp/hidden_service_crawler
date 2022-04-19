@@ -4,10 +4,11 @@ import { Site } from "./Site";
 import { URL } from "./URL";
 
 const MAX_SITE_ATTEMPTS = 250000;
+const SITE_UPDATE_TIME = 1 * 60 * 60 * 1000; // 1 hour in ms
 
 export class Web {
     attempts: number;
-    knownSites: { [url: string]: string }; // titles
+    knownSites: { [url: string]: number }; // last access time
     dbm: DBManager;
     rm: RequestManager;
 
@@ -18,10 +19,12 @@ export class Web {
 
         //Initalize known sites
         this.knownSites = {};
-        this.dbm.getSiteTitleMap((results) => {
+        this.dbm.getLastPingForSites((results) => {
+            //console.log(results);
             results.forEach(result => {
-                this.knownSites[result.url] = result.title;             
+                this.knownSites[result.link] = result.access_time;
             });
+            console.log(this.knownSites);
             onInit();
         });
     }
@@ -33,13 +36,16 @@ export class Web {
     addURL(url: URL, recursive: boolean = false, onComplete?: () => void) {
         // Avoid requesting the same site more than once
         let urlString = url.getFull();
-        if (this.knownSites.hasOwnProperty(urlString)) {
+        const now = Date.now();
+        if (this.knownSites[urlString] > now - SITE_UPDATE_TIME) {
+            // url has been updated within the last hour. don't add.
+            console.log(`Too soon: ${urlString}`);
             return;
         }
 
-        // Set placeholder so we don't request this url again
-        this.knownSites[urlString] = null;
- 
+        // Update ping time so we don't request this url again
+        this.knownSites[urlString] = Date.now();
+
         // Track total attempts to prevent ram from exploding to infinite recursion
         this.attempts++;
         Site.factory(url, this.rm).then(site => {
@@ -61,31 +67,36 @@ export class Web {
         }
 
         let urlString = site.url.getFull();
-        // Update placeholder with correct title
-        this.knownSites[urlString] = site.title;
+        // Update placeholder with current time
+        this.knownSites[urlString] = Date.now();
 
         this.dbm.storeSite(site.url, site.title);
         this.dbm.logSiteAccess(site.url, site.pageStatus);
-        // debug to detect duplicate links. Should be removed in Site creation
-        site.links.forEach((link, i) => {
-            for(let j = 0; j < i; j++) {
-                if(site.links[j].isEqual(link)) {
-                    console.log(`Duplicate link:\n${site.url}\n${link}\n${site.links[j]}`);
-                    throw new Error(`Duplicate link: ${site.url} to ${link}`);
-                }
-            }
-        });        
 
-        site.links.forEach(link => {
-            //console.log(`link ${site.url} to ${link}`);
-            this.dbm.logLink(site.url, link);
-        });
-        if(site.keywords.length > 0) {
+        // Prune old links and add new ones. Should have better performance if too many bugs delete all existing links and insert new links
+        this.dbm.getLinksFromSite(site.url, (oldLinks => {
+            site.links.forEach(link => {
+                if (!oldLinks.find(oldLink => oldLink.isEqual(link))) {
+                    // If link not already logged, log link
+                    this.dbm.logLink(site.url, link);
+                }
+            });
+
+            oldLinks.forEach(oldLink => {
+                if (!site.links.find(link => link.isEqual(oldLink))) {
+                    // If link no longer exists delete old link
+                    this.dbm.deleteLink(site.url, oldLink);
+                }
+            });
+        }));
+
+
+        if (site.keywords.length > 0) {
             this.dbm.logKeywords(site.url, site.keywords);
-        }      
+        }
 
         // Add site of relocated urls
-        if(site.relocatedTo) {
+        if (site.relocatedTo) {
             this.dbm.logRedirect(site.url, site.relocatedTo);
             this.addURL(site.relocatedTo, true, onComplete);
         }

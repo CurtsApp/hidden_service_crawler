@@ -3,6 +3,7 @@
     "build": "tsc",
     "reset": "cd sql; ./reset_db.sh;",
     "test": "cd sql; ./reset_db.sh; cd ..; tsc; cd dist; node crawler.js http://zqktlwiuavvvqqt4ybvgvi7tyo4hjl5xgfuvpdf6otjiycgwqbym2qad.onion/wiki/",
+    "no_del": "tsc; cd dist; node crawler.js http://zqktlwiuavvvqqt4ybvgvi7tyo4hjl5xgfuvpdf6otjiycgwqbym2qad.onion/wiki/",
     "test2": "cd sql; ./reset_db.sh; cd ..; tsc; cd dist; node crawler.js http://darkfailenbsdla5mal2mxn2uz66od5vtzd5qozslagrfzachha3f3id.onion/",
     "test3": "cd sql; ./reset_db.sh; cd ..; tsc; cd dist; node crawler.js https://www.bbcnewsd73hkzno2ini43t4gblxvycyac5aw4gnv7t2rccijh7745uqd.onion/",
     "dread": "tsc; cd dist; node dreadCrawler.js"
