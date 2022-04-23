@@ -49,7 +49,9 @@ export class DBManager {
     };
 
     private constructor() {
-        this.db = new sqlite3.Database('./../sql/data/crawler.db');
+        var path = require("path");
+        console.log(path.resolve('../../sql/data/crawler.db'));
+        this.db = new sqlite3.Database('../../sql/data/crawler.db');
         this.initalizeQueue();
     }
 
