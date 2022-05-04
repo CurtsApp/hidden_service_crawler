@@ -31,6 +31,7 @@ function main() {
         console.log("Indexing all known sites");
         let web = new Web(rm, () => {
             DBManager.getDBManager().getLastPingForSites((results) => {
+                console.log(results);
                 results.forEach(result => {
                     web.addURL(new URL(result.link), true, () => console.log(`Finish index of ${result.link}`));
                 });
