@@ -19,15 +19,23 @@ function main() {
     process.on('unhandledRejection', console.log);
 
     let args = process.argv.slice(2);
+    let rm = new RequestManager();
     if (args.length > 0) {
         let startUrl = args[0];
-        let rm = new RequestManager();
+        
         let web = new Web(rm, () => {
             web.addURL(new URL(startUrl), true, () => exit(false));
         });
 
     } else {
-        console.log("Provide source url as first argument.");
+        console.log("Indexing all known sites");
+        let web = new Web(rm, () => {
+            DBManager.getDBManager().getLastPingForSites((results) => {
+                results.forEach(result => {
+                    web.addURL(new URL(result.link), true, () => console.log(`Finish index of ${result.link}`));
+                });
+            });            
+        });
     }
 }
 
