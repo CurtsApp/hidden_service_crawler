@@ -16,7 +16,7 @@ const RETRY_DELAY_MIN = 1.5 * 1000; //1.5 sec
 const RETRY_VARIANCE = 1000;
 const CONNECTION_TIMEOUT_TIME = 11 * 1000; //11 seconds
 const DATA_TIMEOUT_TIME = 31 * 1000; //31 seconds
-const MAX_CONCURRENT_REQUESTS = 60; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
+const MAX_CONCURRENT_REQUESTS = 180; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
 
 export enum UniqueStatus {
   GENERIC_FAILURE = -1,
@@ -24,7 +24,8 @@ export enum UniqueStatus {
   GZIP_ERROR = -3,
   BR_ERROR = -4,
   DEFLATE_ERROR = -5,
-  NO_COMPRESS_ERROR = -6
+  NO_COMPRESS_ERROR = -6,
+  UNEXPECTED_ENCODING_TYPE = -7
 }
 
 export interface Cookie {
@@ -289,7 +290,9 @@ export class RequestManager {
                   });
                   break;
                 default:
-                  throw new Error(`Unexpected encodingtype ${encodingType}`);
+                  console.log(`Unexpected encodingtype: ${encodingType}. From \n${url}\nHeaders:\n${JSON.stringify(res.headers)}`);
+                  //throw new Error(`Unexpected encodingtype ${encodingType}`);
+                  resolve({ page: null, status: UniqueStatus.UNEXPECTED_ENCODING_TYPE});
               }
               break;
 
@@ -314,7 +317,9 @@ export class RequestManager {
               console.log(`Redirectiong (${res.statusCode})...\nFrom: ${url}\nTo:   ${locationURL}`);
               resolve({ page: null, status: res.statusCode, redirectUrl: locationURL });
               break;
-
+            default:
+              console.log(`New status code: ${res.statusCode}. From \n${url}\nHeaders:\n${JSON.stringify(res.headers)}`);
+                //throw new Error(`New status code: ${res.statusCode}. From \n${url}\nHeaders:\n${JSON.stringify(res.headers)}`);
             case 300:
             // Multiple choices (there should be location information in a payload somewhere). Currently unhandled
             case 500:
@@ -357,8 +362,7 @@ export class RequestManager {
               retryRequest(retryCount);
               break;
 
-            default:
-              throw new Error(`New status code: ${res.statusCode}. From \n${url}\nHeaders:\n${JSON.stringify(res.headers)}`);
+            
           }
         }).on('error', error => {
           reject(error);
