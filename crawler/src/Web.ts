@@ -24,7 +24,7 @@ export class Web {
             results.forEach(result => {
                 this.knownSites[result.link] = result.access_time;
             });
-            console.log(this.knownSites);
+            // console.log(this.knownSites);
             onInit();
         });
     }
@@ -39,7 +39,7 @@ export class Web {
         const now = Date.now();
         if (this.knownSites[urlString] > now - SITE_UPDATE_TIME) {
             // url has been updated within the last hour. don't add.
-            console.log(`Too soon: ${urlString}`);
+            // console.log(`Too soon: ${urlString}`);
             return;
         }
 

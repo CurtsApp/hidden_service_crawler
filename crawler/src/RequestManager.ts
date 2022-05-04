@@ -16,7 +16,7 @@ const RETRY_DELAY_MIN = 1.5 * 1000; //1.5 sec
 const RETRY_VARIANCE = 1000;
 const CONNECTION_TIMEOUT_TIME = 11 * 1000; //11 seconds
 const DATA_TIMEOUT_TIME = 31 * 1000; //31 seconds
-const MAX_CONCURRENT_REQUESTS = 60; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
+const MAX_CONCURRENT_REQUESTS = 300; // Need to do benchmarks outside of the VM, seems inconsistent. 90 seems good for VM 120 gives worse results
 
 export enum UniqueStatus {
   GENERIC_FAILURE = -1,
