@@ -4,7 +4,7 @@ import { Site } from "./Site";
 import { URL } from "./URL";
 
 const MAX_SITE_ATTEMPTS = 250000;
-const SITE_UPDATE_TIME = 1 * 60 * 60 * 1000; // 1 hour in ms
+const SITE_UPDATE_TIME = 11 * 60 * 60 * 1000; // 11 hours in ms
 
 export class Web {
     attempts: number;
