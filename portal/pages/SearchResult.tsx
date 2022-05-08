@@ -1,8 +1,8 @@
 import type { NextPage } from 'next'
+import Link from 'next/link';
 import { ParsedUrlQuery } from 'querystring';
-import Home from '.';
 import styles from '../styles/Home.module.css'
-import { getResults, SearchResult}  from '../util/resultUtils'
+import { getResults, SearchResult } from '../util/resultUtils'
 
 interface SearchResultProps {
   query: ParsedUrlQuery;
@@ -13,11 +13,11 @@ const SearchResult: NextPage<SearchResultProps> = (props: SearchResultProps) => 
   // Read results from database
   // Generate page based on results
   // Return page
-  if(!props?.query?.q) {
+  if (!props?.query?.q) {
     // Redirect   
     return (
       <div>
-        <h1>Missing search query. Please go <a href='/'>home</a> and try again.</h1>
+        <h1>Missing search query. Please go <Link href='/'>home</Link> and try again.</h1>
       </div>
     );
   }
