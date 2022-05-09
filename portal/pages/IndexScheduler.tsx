@@ -8,8 +8,8 @@ const IndexScheduler: NextPage = () => {
       <div className={styles.container}>
         <h1><Link href={"/"}>Quaero</Link></h1>
         <h2>Request site indexing</h2>
-        <form action="/api/addIndex" method="post">
-          <input type={"text"} name="q"></input>
+        <form action="/IndexRequestResult" method="get">
+          <input type={"text"} name="site"></input>
           <input type="submit" value="Submit"></input>
         </form>
       </div>
