@@ -1,5 +1,5 @@
 let sqlite3 = require('sqlite3');
-let db = new sqlite3.Database('../../sql/data/crawler.db');
+let db = new sqlite3.Database('../sql/data/crawler.db');
 
 export interface SearchResults {
     totalMatches: number;
@@ -11,10 +11,11 @@ export interface SearchResult {
     containsKeywords: string[];
     excludesKeywords: string[];
     uptime: number;
+    score: number;
 }
 
 // Get the results that match the query for the given page number
-export function getResults(query: string, pageNumber: number): Promise<SearchResults> {
+export async function getResults(query: string, pageNumber: number) {
     let results: SearchResults = {
         totalMatches: 0,
         pageResults: []
@@ -27,7 +28,8 @@ export function getResults(query: string, pageNumber: number): Promise<SearchRes
                     url:result.url,
                     containsKeywords:result.matched_terms,
                     excludesKeywords:result.missing_terms,
-                    uptime:result.uptime || 0
+                    uptime:result.uptime || 0,
+                    score: result.score
                 }
                 results.pageResults.push(final_result)
             })
@@ -36,7 +38,9 @@ export function getResults(query: string, pageNumber: number): Promise<SearchRes
         })
     })
 
-    return search_promise
+    let waited_results = await search_promise
+    return waited_results
+
 }
 
 //1
@@ -75,6 +79,7 @@ interface relevance_results {
     matched_terms: string[]
     missing_terms: string[]
     uptime?: number
+    score: number
 }
 function process_rows(rows: keyword_row[], search_term: string) {
     let process_rows_promise = new Promise<relevance_results[]>(function (resolve, reject) {
@@ -99,7 +104,7 @@ function process_rows(rows: keyword_row[], search_term: string) {
                     missing_terms.push(current_term)
                 }
             })
-            let scored_source = { url, source_score, matched_terms, missing_terms }
+            let scored_source = { url, source_score, matched_terms, missing_terms, score: source_score }
             if (source_score > 0) {
                 source_relevance_results.push(scored_source)
             }
