@@ -29,7 +29,7 @@ export async function getResults(query: string, pageNumber: number) {
                     containsKeywords:result.matched_terms,
                     excludesKeywords:result.missing_terms,
                     uptime:result.uptime || 0,
-                    score: result.score
+                    score: result.source_score
                 }
                 results.pageResults.push(final_result)
             })
@@ -79,7 +79,6 @@ interface relevance_results {
     matched_terms: string[]
     missing_terms: string[]
     uptime?: number
-    score: number
 }
 function process_rows(rows: keyword_row[], search_term: string) {
     let process_rows_promise = new Promise<relevance_results[]>(function (resolve, reject) {
@@ -104,7 +103,7 @@ function process_rows(rows: keyword_row[], search_term: string) {
                     missing_terms.push(current_term)
                 }
             })
-            let scored_source = { url, source_score, matched_terms, missing_terms, score: source_score }
+            let scored_source = { url, source_score, matched_terms, missing_terms }
             if (source_score > 0) {
                 source_relevance_results.push(scored_source)
             }
