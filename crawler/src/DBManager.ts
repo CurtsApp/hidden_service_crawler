@@ -261,7 +261,7 @@ export class DBManager {
             this.db.run("COMMIT;");
         } catch (e) {
             console.log(e);
-            throw e;
+            // On an error uncommitted changes should get dropped automatically
         } finally {
             this.initalizeQueue();
         }
