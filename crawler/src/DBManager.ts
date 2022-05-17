@@ -84,6 +84,9 @@ export class DBManager {
             [siteRow.url, siteRow.title],
             (err) => {
                 if (err) {
+                    console.log("Write Site Error");
+                    console.log(siteRow);
+                    console.log(err);
                     throw new Error(err);
                 }
             });
@@ -104,6 +107,9 @@ export class DBManager {
             [pingRow.link, pingRow.access_time, pingRow.status_code],
             (err) => {
                 if (err) {
+                    console.log("Write Ping Error");
+                    console.log(pingRow);
+                    console.log(err);
                     throw new Error(err);
                 }
             });
@@ -144,6 +150,9 @@ export class DBManager {
             [linkRow.from_protocol_is_secure, linkRow.from_hostname, linkRow.from_path, linkRow.to_protocol_is_secure, linkRow.to_hostname, linkRow.to_path],
             (err) => {
                 if (err) {
+                    console.log("Write Link Error");
+                    console.log(linkRow);
+                    console.log(err);
                     throw new Error(err);
                 }
             });
@@ -160,6 +169,9 @@ export class DBManager {
                 [linkRow.from_protocol_is_secure, linkRow.from_hostname, linkRow.from_path, linkRow.to_protocol_is_secure, linkRow.to_hostname, linkRow.to_path],
             (err) => {
                 if (err) {
+                    console.log("Write Delete Link Error");
+                    console.log(linkRow);
+                    console.log(err);
                     throw new Error(err);
                 }
             });
@@ -178,6 +190,9 @@ export class DBManager {
             [redirectRow.fromLink, redirectRow.toLink],
             (err) => {
                 if (err) {
+                    console.log("Write Redirect Error");
+                    console.log(redirectRow);
+                    console.log(err);
                     throw new Error(err);
                 }
             });
@@ -198,6 +213,9 @@ export class DBManager {
             [keywordRow.url, keywordRow.keywords],
             (err) => {
                 if (err) {
+                    console.log("Write Keyword Error");
+                    console.log(keywordRow);
+                    console.log(err);
                     throw new Error(err);
                 }
             });
