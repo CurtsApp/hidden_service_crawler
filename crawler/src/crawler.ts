@@ -33,7 +33,12 @@ function main() {
             DBManager.getDBManager().getLastPingForSites((results) => {
                 console.log(results);
                 results.forEach(result => {
-                    web.addURL(new URL(result.link), true, () => console.log(`Finish index of ${result.link}`));
+                    try {
+                        let url = new URL(result.link);
+                        web.addURL(url, true, () => console.log(`Finish index of ${result.link}`));
+                    } catch {
+                        console.log(`Bad URL in database: ${result.link}`);
+                    }                    
                 });
             });            
         });
