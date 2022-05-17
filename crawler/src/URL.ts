@@ -11,8 +11,7 @@ export class URL {
         let validOnionRegEx = new RegExp(VALID_ONION_REGEX);
 
         if (!validOnionRegEx.test(fullURL)) {
-            console.log(`Invalid URL: ${fullURL}`);
-            return null;
+            throw new Error(`Invalid URL: ${fullURL}`);
         }
 
         // The suffix will be dropped when calculating the path
