@@ -80,16 +80,21 @@ export class DBManager {
     }
 
     private writeSite(siteRow: SitesRow) {
-        this.db.run("INSERT OR REPLACE INTO sites(link, title) VALUES (?, ?);",
-            [siteRow.url, siteRow.title],
-            (err) => {
-                if (err) {
-                    console.log("Write Site Error");
-                    console.log(siteRow);
-                    console.log(err);
-                    throw new Error(err);
-                }
-            });
+        return new Promise<boolean>((resolve, reject) => {
+            this.db.run("INSERT OR REPLACE INTO sites(link, title) VALUES (?, ?);",
+                [siteRow.url, siteRow.title],
+                (err) => {
+                    if (err) {
+                        console.log("Write Site Error");
+                        console.log(siteRow);
+                        console.log(err);
+                        reject(err);
+                    } else {
+                        resolve(true)
+                    }
+                });
+        });
+
     }
 
     logSiteAccess(url: URL, status: number) {
@@ -103,16 +108,20 @@ export class DBManager {
     }
 
     private writePing(pingRow: PingsRow) {
-        this.db.run("INSERT INTO pings(link, access_time, status_code) VALUES (?, ?, ?);",
-            [pingRow.link, pingRow.access_time, pingRow.status_code],
-            (err) => {
-                if (err) {
-                    console.log("Write Ping Error");
-                    console.log(pingRow);
-                    console.log(err);
-                    throw new Error(err);
-                }
-            });
+        return new Promise<boolean>((resolve, reject) => {
+            this.db.run("INSERT INTO pings(link, access_time, status_code) VALUES (?, ?, ?);",
+                [pingRow.link, pingRow.access_time, pingRow.status_code],
+                (err) => {
+                    if (err) {
+                        console.log("Write Ping Error");
+                        console.log(pingRow);
+                        console.log(err);
+                        reject(err);
+                    } else {
+                        resolve(true)
+                    }
+                });
+        });
     }
 
     logLink(fromURL: URL, toURL: URL) {
@@ -146,35 +155,43 @@ export class DBManager {
     }
 
     private writeLink(linkRow: LinksRow) {
-        this.db.run("INSERT INTO links(from_protocol_is_secure, from_hostname, from_path, to_protocol_is_secure, to_hostname, to_path) VALUES (?, ?, ?, ?, ?, ?);",
-            [linkRow.from_protocol_is_secure, linkRow.from_hostname, linkRow.from_path, linkRow.to_protocol_is_secure, linkRow.to_hostname, linkRow.to_path],
-            (err) => {
-                if (err) {
-                    console.log("Write Link Error");
-                    console.log(linkRow);
-                    console.log(err);
-                    throw new Error(err);
-                }
-            });
+        return new Promise<boolean>((resolve, reject) => {
+            this.db.run("INSERT INTO links(from_protocol_is_secure, from_hostname, from_path, to_protocol_is_secure, to_hostname, to_path) VALUES (?, ?, ?, ?, ?, ?);",
+                [linkRow.from_protocol_is_secure, linkRow.from_hostname, linkRow.from_path, linkRow.to_protocol_is_secure, linkRow.to_hostname, linkRow.to_path],
+                (err) => {
+                    if (err) {
+                        console.log("Write Link Error");
+                        console.log(linkRow);
+                        console.log(err);
+                        reject(err);
+                    } else {
+                        resolve(true);
+                    }
+                });
+        });
     }
 
     private writeDeleteLink(linkRow: LinksRow) {
-        this.db.run(`DELETE FROM links
-              WHERE from_protocol_is_secure = ? 
-                AND from_hostname = ? 
-                AND from_path = ?
-                AND to_protocol_is_secure = ?
-                AND to_hostname = ?
-                AND to_path = ?;`,
+        return new Promise<boolean>((resolve, reject) => {
+            this.db.run(`DELETE FROM links
+            WHERE from_protocol_is_secure = ? 
+              AND from_hostname = ? 
+              AND from_path = ?
+              AND to_protocol_is_secure = ?
+              AND to_hostname = ?
+              AND to_path = ?;`,
                 [linkRow.from_protocol_is_secure, linkRow.from_hostname, linkRow.from_path, linkRow.to_protocol_is_secure, linkRow.to_hostname, linkRow.to_path],
-            (err) => {
-                if (err) {
-                    console.log("Write Delete Link Error");
-                    console.log(linkRow);
-                    console.log(err);
-                    throw new Error(err);
-                }
-            });
+                (err) => {
+                    if (err) {
+                        console.log("Write Delete Link Error");
+                        console.log(linkRow);
+                        console.log(err);
+                        reject(err);
+                    } else {
+                        resolve(true)
+                    }
+                });
+        });
     }
 
     logRedirect(fromURL: URL, toURL: URL) {
@@ -186,16 +203,20 @@ export class DBManager {
     }
 
     private writeRedirect(redirectRow: RedirectsRow) {
-        this.db.run("INSERT OR REPLACE INTO redirects(from_link, to_link) VALUES (?, ?);",
-            [redirectRow.fromLink, redirectRow.toLink],
-            (err) => {
-                if (err) {
-                    console.log("Write Redirect Error");
-                    console.log(redirectRow);
-                    console.log(err);
-                    throw new Error(err);
-                }
-            });
+        return new Promise<boolean>((resolve, reject) => {
+            this.db.run("INSERT OR REPLACE INTO redirects(from_link, to_link) VALUES (?, ?);",
+                [redirectRow.fromLink, redirectRow.toLink],
+                (err) => {
+                    if (err) {
+                        console.log("Write Redirect Error");
+                        console.log(redirectRow);
+                        console.log(err);
+                        reject(err);
+                    } else {
+                        resolve(true);
+                    }
+                });
+        });
     }
 
     // Keywords should be sorted from most common to least common
@@ -209,16 +230,21 @@ export class DBManager {
     }
 
     private writeKeywords(keywordRow: KeywordsRow) {
-        this.db.run("INSERT OR REPLACE INTO keywords(link, keywords) VALUES (?, ?);",
-            [keywordRow.url, keywordRow.keywords],
-            (err) => {
-                if (err) {
-                    console.log("Write Keyword Error");
-                    console.log(keywordRow);
-                    console.log(err);
-                    throw new Error(err);
-                }
-            });
+        return new Promise<boolean>((resolve, reject) => {
+            this.db.run("INSERT OR REPLACE INTO keywords(link, keywords) VALUES (?, ?);",
+                [keywordRow.url, keywordRow.keywords],
+                (err) => {
+                    if (err) {
+                        console.log("Write Keyword Error");
+                        console.log(keywordRow);
+                        console.log(err);
+                        reject(err);
+                    } else {
+                        resolve(true);
+                    }
+                });
+        });
+
     }
 
     getSiteTitleMap(onComplete: (results: SitesRow[]) => void) {
@@ -268,20 +294,37 @@ export class DBManager {
         }
 
         console.log("Commiting Queue!");
+        const queueCopy = {
+            sites: [...this.queuedRows.sites],
+            pings: [...this.queuedRows.pings],
+            keywords: [...this.queuedRows.keywords],
+            addLinks: [...this.queuedRows.addLinks],
+            delLinks: [...this.queuedRows.delLinks],
+            redirects: [...this.queuedRows.redirects]
+        }
+        this.initalizeQueue();
+        let dbWriteQueue = [];
         try {
-            this.db.run("BEGIN TRANSACTION;");
-            this.queuedRows.sites.forEach(site => this.writeSite(site));
-            this.queuedRows.pings.forEach(ping => this.writePing(ping));
-            this.queuedRows.keywords.forEach(keyword => this.writeKeywords(keyword));
-            this.queuedRows.addLinks.forEach(link => this.writeLink(link));
-            this.queuedRows.delLinks.forEach(link => this.writeDeleteLink(link));
-            this.queuedRows.redirects.forEach(redirect => this.writeRedirect(redirect));
-            this.db.run("COMMIT;");
+            this.db.run("BEGIN TRANSACTION;", {}, () => {
+                console.log("FINISH TRANSACTION");
+                queueCopy.sites.forEach(site => dbWriteQueue.push(this.writeSite(site)));
+                queueCopy.pings.forEach(ping => dbWriteQueue.push(this.writePing(ping)));
+                queueCopy.keywords.forEach(keyword => dbWriteQueue.push(this.writeKeywords(keyword)));
+                queueCopy.addLinks.forEach(link => dbWriteQueue.push(this.writeLink(link)));
+                queueCopy.delLinks.forEach(link => dbWriteQueue.push(this.writeDeleteLink(link)));
+                queueCopy.redirects.forEach(redirect => dbWriteQueue.push(this.writeRedirect(redirect)));
+                Promise.all(dbWriteQueue).then(res => {
+                    this.db.run("COMMIT;", {}, () => console.log("FINISH COMMIT"));
+                }).catch(reject => {
+                    console.log("DB Write Error Rolling back");
+                    console.log(reject);
+                    this.db.run("ROLLBACK;");
+                })
+            });
         } catch (e) {
             console.log(e);
-            // On an error uncommitted changes should get dropped automatically
-        } finally {
-            this.initalizeQueue();
+            console.log("DB Write Error Rolling back");
+            this.db.run("ROLLBACK;");
         }
     }
 
