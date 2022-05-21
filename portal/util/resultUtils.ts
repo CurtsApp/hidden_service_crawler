@@ -25,11 +25,11 @@ export async function getResults(query: string, pageNumber: number) {
         get_search_results(query).then(source_relevance_results => {
             source_relevance_results.forEach(result => {
                 let final_result = {
-                    url:result.url,
-                    containsKeywords:result.matched_terms,
-                    excludesKeywords:result.missing_terms,
-                    uptime:result.uptime || 0,
-                    score: result.score
+                    url: result.url,
+                    containsKeywords: result.matched_terms,
+                    excludesKeywords: result.missing_terms,
+                    uptime: result.uptime || 0,
+                    score: result.source_score
                 }
                 results.pageResults.push(final_result)
             })
@@ -79,7 +79,6 @@ interface relevance_results {
     matched_terms: string[]
     missing_terms: string[]
     uptime?: number
-    score: number
 }
 function process_rows(rows: keyword_row[], search_term: string) {
     let process_rows_promise = new Promise<relevance_results[]>(function (resolve, reject) {
@@ -104,7 +103,7 @@ function process_rows(rows: keyword_row[], search_term: string) {
                     missing_terms.push(current_term)
                 }
             })
-            let scored_source = { url, source_score, matched_terms, missing_terms, score: source_score }
+            let scored_source = { url, source_score, matched_terms, missing_terms }
             if (source_score > 0) {
                 source_relevance_results.push(scored_source)
             }
@@ -144,7 +143,6 @@ function process_rows(rows: keyword_row[], search_term: string) {
             source_relevance_results.sort((a, b) => {
                 return b.source_score - a.source_score
             })
-            console.log(source_relevance_results)
             resolve(source_relevance_results)
         })
     })
@@ -162,30 +160,20 @@ function process_pings(rows: ping_row[]) {
     let source_uptime = 0
     let source_downtime = 0
     let date = Date.now()
-    //NEED TO INSERT ADDITIONAL DATA INTO DATABASE TO TEST
-    let previous_ping = sorted_rows[0].access_time
-    previous_ping = Number(previous_ping)
-    sorted_rows.forEach((row, idx, array) => {
-        let url = row.link
-        let access_time = row.access_time
+    sorted_rows.forEach((row, index) => {
+        let previous_ping;
+        let next_ping;
         let status_code = row.status_code
-        if (idx === array.length - 1) {
-            if (status_code >= 200 && status_code < 300) {
-                source_uptime += date - previous_ping
-                previous_ping = access_time
-            } else {
-                source_downtime += date - previous_ping
-                previous_ping = access_time
-            }
+        previous_ping = sorted_rows[index].access_time
+        if (index === sorted_rows.length - 1) {
+            next_ping = date
         } else {
-            console.log('nope')
-            if (status_code >= 200 && status_code < 300) {
-                source_uptime += access_time - previous_ping
-                previous_ping = access_time
-            } else {
-                source_downtime += access_time - previous_ping
-                previous_ping = access_time
-            }
+            next_ping = sorted_rows[index + 1].access_time
+        }
+        if (status_code >= 200 && status_code < 300) {
+            source_uptime += next_ping - previous_ping
+        } else {
+            source_downtime += next_ping - previous_ping
         }
     })
     let source_ratio = source_uptime / (source_downtime + source_uptime)
