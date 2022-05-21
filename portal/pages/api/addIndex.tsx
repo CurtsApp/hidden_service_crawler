@@ -12,7 +12,7 @@ export default function handler(
 ) {
   
   console.log(req)
-  res.status(200).send()
+  //res.status(200).send()
 }
 
 const addIndexResultPage: NextPage = () => {

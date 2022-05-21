@@ -25,7 +25,8 @@ export enum UniqueStatus {
   BR_ERROR = -4,
   DEFLATE_ERROR = -5,
   NO_COMPRESS_ERROR = -6,
-  UNEXPECTED_ENCODING_TYPE = -7
+  UNEXPECTED_ENCODING_TYPE = -7,
+  INVALID_REDIRECT_URL = -8
 }
 
 export interface Cookie {
@@ -316,11 +317,18 @@ export class RequestManager {
               try {
                 locationURL = new URL(res.headers.location);
               } catch {
-                locationURL = new URL(addPath(url, res.headers.location));
+                try {
+                  locationURL = new URL(addPath(url, res.headers.location));
+                } catch {
+                  // Header gave us back an invalid url
+                  resolve({ page: null, status: UniqueStatus.INVALID_REDIRECT_URL });
+                }                
               }
 
-              console.log(`Redirectiong (${res.statusCode})...\nFrom: ${url}\nTo:   ${locationURL}`);
-              resolve({ page: null, status: res.statusCode, redirectUrl: locationURL });
+              if(locationURL !== null) {
+                console.log(`Redirectiong (${res.statusCode})...\nFrom: ${url}\nTo:   ${locationURL}`);
+                resolve({ page: null, status: res.statusCode, redirectUrl: locationURL });
+              }
               break;
             default:
               console.log(`New status code: ${res.statusCode}. From \n${url}\nHeaders:\n${JSON.stringify(res.headers)}`);
