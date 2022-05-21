@@ -87,11 +87,11 @@ function process_rows(rows: keyword_row[], search_term: string) {
         rows.forEach((row) => {
             let source_score = 0
             let url = row.link
-            let keyword_list = row.keywords.split(' ')
+            let keyword_list = row.keywords.toLowerCase().split(' ')
             let missing_terms: string[] = []
             let matched_terms: string[] = []
             all_search_terms.forEach((current_term) => {
-                if (keyword_list.includes(current_term) === true) {
+                if (keyword_list.includes(current_term.toLowerCase()) === true) {
                     //If source contains current search term
                     source_score += 1000
                     //Relevance score of source for current search term
